@@ -28,7 +28,7 @@ console.log('   APP_DOMAIN:', process.env.APP_DOMAIN);
 console.log('   RESTAURANT_NAME:', process.env.RESTAURANT_NAME);
 
 const app = express();
-const PORT = process.env.PORT || 3005;
+const PORT = process.env.PORT || 4004;
 
 // Configurar EJS como template engine
 app.set('view engine', 'ejs');
