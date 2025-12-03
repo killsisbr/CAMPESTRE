@@ -1,0 +1,1759 @@
+import express from 'express';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import dotenv from 'dotenv';
+import multer from 'multer';
+import WhatsAppService from './whatsapp-service.js';
+import DeliveryService from './services/delivery-service.js';
+import jwt from 'jsonwebtoken';
+import { darkenColor, lightenColor } from './helpers/colorHelper.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Carregar variáveis de ambiente do diretório raiz
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// Debug: Verificar variáveis de ambiente carregadas
+console.log('🔧 Variáveis de ambiente carregadas:');
+console.log('   PORT:', process.env.PORT);
+console.log('   WHATSAPP_GROUP_ID:', process.env.WHATSAPP_GROUP_ID);
+console.log('   ORS_API_KEY:', process.env.ORS_API_KEY ? '✅ Configurada' : '❌ Não configurada');
+console.log('   RESTAURANT_LATITUDE:', process.env.RESTAURANT_LATITUDE);
+console.log('   RESTAURANT_LONGITUDE:', process.env.RESTAURANT_LONGITUDE);
+console.log('   APP_DOMAIN:', process.env.APP_DOMAIN);
+console.log('   RESTAURANT_NAME:', process.env.RESTAURANT_NAME);
+
+const app = express();
+const PORT = process.env.PORT || 3005;
+
+// Configurar EJS como template engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Middleware para servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Middleware para parsing de JSON (aumentar limite para suportar imagens base64)
+app.use(express.json({ limit: '10mb' }));
+
+// Middleware para parsing de formulários
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Endpoint para receber token JWT e setar cookie de sessão, depois redirecionar para /pedido
+app.get('/auth/welcome', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) {
+      return res.redirect('/pedido');
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || 'change_this_secret_in_env';
+    let payload;
+    try {
+      payload = jwt.verify(token, jwtSecret);
+    } catch (err) {
+      console.warn('Token invalid or expired in /auth/welcome:', err && err.message);
+      return res.redirect('/pedido');
+    }
+
+    // Calcular maxAge do cookie com base em exp do token (se disponível)
+    // default fallback maxAge: 90 days (~3 months)
+    let maxAge = 90 * 24 * 60 * 60 * 1000;
+    try {
+      const decoded = jwt.decode(token);
+      if (decoded && decoded.exp) {
+        const expMs = decoded.exp * 1000;
+        const remaining = expMs - Date.now();
+        if (remaining > 0) maxAge = remaining;
+      }
+    } catch (e) { /* ignore */ }
+
+    // Setar cookie com token (httpOnly para segurança)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: maxAge,
+      sameSite: 'Lax',
+      path: '/'
+    };
+
+    res.cookie('brutus_token', token, cookieOptions);
+    return res.redirect('/pedido');
+  } catch (err) {
+    console.error('Erro no /auth/welcome:', err && err.message);
+    return res.redirect('/pedido');
+  }
+});
+
+// Endpoint que retorna a sessão (whatsappId) a partir do cookie brute_token
+app.get('/api/session', (req, res) => {
+  try {
+    const raw = req.headers.cookie || '';
+    const parts = raw.split(';').map(p => p.trim());
+    const tokenPart = parts.find(p => p.startsWith('brutus_token='));
+    if (!tokenPart) return res.json({ success: false });
+    const token = tokenPart.replace('brutus_token=', '');
+
+    const jwtSecret = process.env.JWT_SECRET || 'change_this_secret_in_env';
+    try {
+      const payload = jwt.verify(token, jwtSecret);
+      // Return entire payload so frontend can prefill name/phone/address
+      return res.json({ success: true, session: payload });
+    } catch (err) {
+      return res.json({ success: false });
+    }
+  } catch (err) {
+    return res.json({ success: false });
+  }
+});
+
+// Configuração do multer para upload de imagens
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Tentar usar o nome do produto como base do filename (para facilitar identificação)
+    try {
+      const ext = path.extname(file.originalname) || '';
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
+      const sanitize = (s) => {
+        if (!s) return 'image';
+        // remover acentos
+        let name = String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '');
+        // fallback para suporte em engines antigas
+        name = name.replace(/[\u0300-\u036f]/g, '');
+        // manter apenas letras, números, traço e underline
+        name = name.replace(/[^a-zA-Z0-9-_\.]/g, '-');
+        // remover múltiplos traços
+        name = name.replace(/-+/g, '-').replace(/(^-|-$)/g, '');
+        // limitar comprimento
+        return name.substring(0, 80) || 'image';
+      };
+
+      const tryGenerate = async () => {
+        try {
+          const prodId = req.params && req.params.id ? req.params.id : null;
+          if (prodId && db) {
+            const row = await db.get('SELECT nome FROM produtos WHERE id = ?', [prodId]);
+            if (row && row.nome) {
+              const base = sanitize(row.nome);
+              // anexar sufixo único para evitar sobrescrita
+              return cb(null, `${base}-${uniqueSuffix}${ext}`);
+            }
+          }
+        } catch (err) {
+          // ignore e cair para fallback
+          console.warn('Não foi possível obter nome do produto para naming:', err && err.message);
+        }
+        // Fallback: nome genérico com campo e sufixo
+        return cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+      };
+
+      // executar
+      tryGenerate();
+    } catch (err) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // Limite de 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Aceitar apenas imagens
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos de imagem são permitidos!'));
+    }
+  }
+});
+
+// Diretório para armazenar imagens
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Servir arquivos de upload
+app.use('/uploads', express.static(uploadDir));
+
+// Banco de dados será inicializado depois
+let db;
+let whatsappService;
+let deliveryService;
+
+// Rota principal
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pedido.html'));
+});
+
+// Rota para pedidos via WhatsApp
+app.get('/pedido', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pedido.html'));
+});
+
+// Rota para página de personalização
+app.get('/custom', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/custom.html'));
+});
+
+// Rota para página de detalhes do pedido
+app.get('/pedido/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pedido-detalhe.html'));
+});
+
+// Endpoint para pegar produtos
+app.get('/api/produtos', async (req, res) => {
+  try {
+    const produtos = await db.all('SELECT * FROM produtos');
+    console.log(`GET /api/produtos: returning ${produtos.length} produtos`);
+    res.json(produtos);
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error);
+    res.status(500).json({ error: 'Erro ao buscar produtos' });
+  }
+});
+
+// Endpoint para obter a chave da API do Google Maps
+app.get('/api/config/google-maps-key', (req, res) => {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || 'SuaChaveDaApiAqui';
+  res.json({ apiKey });
+});
+
+// Estado do robô (em memória por enquanto)
+let robotEnabled = false;
+
+// Endpoint para verificar status do robô
+app.get('/api/robot/status', (req, res) => {
+  res.json({ 
+    success: true, 
+    enabled: robotEnabled 
+  });
+});
+
+// Endpoint para ligar/desligar robô
+app.post('/api/robot/toggle', (req, res) => {
+  try {
+    const { enabled } = req.body;
+    robotEnabled = enabled === true;
+    
+    console.log(`🤖 Robô ${robotEnabled ? 'LIGADO' : 'DESLIGADO'}`);
+    
+    res.json({ 
+      success: true, 
+      enabled: robotEnabled,
+      message: robotEnabled ? 'Robô ativado' : 'Robô desativado'
+    });
+  } catch (error) {
+    console.error('Erro ao alternar robô:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro ao alternar status do robô' 
+    });
+  }
+});
+
+// Endpoint para calcular valor da entrega
+app.post('/api/entrega/calcular', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    
+    const result = await deliveryService.processDelivery({
+      lat: parseFloat(latitude),
+      lng: parseFloat(longitude)
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Erro ao calcular entrega:', error);
+    res.status(500).json({ 
+      error: 'Erro ao calcular valor da entrega' 
+    });
+  }
+});
+
+// Novo endpoint para converter endereço em coordenadas
+app.post('/api/entrega/endereco-coordenadas', async (req, res) => {
+  try {
+    const { endereco } = req.body;
+    
+    if (!endereco) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Endereço não informado' 
+      });
+    }
+    
+    const coordinates = await deliveryService.converterEnderecoEmCoordenadas(endereco);
+    
+    if (!coordinates) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Não foi possível encontrar as coordenadas para o endereço informado. Por favor, verifique se o endereço está correto.' 
+      });
+    }
+    
+    // Verificar se está em Imbituva
+    const cidadeValida = await deliveryService.verificarSeEstaEmImbituva(coordinates.lat, coordinates.lng);
+    
+    if (!cidadeValida) {
+      return res.status(400).json({ 
+        success: false,
+        error: "❌ *Atendemos apenas em Imbituva!*\n\nSua localização não está em Imbituva, PR. Por favor, digite um endereço em Imbituva ou verifique se sua localização está correta.\n\n_Exemplo: Rua das Flores, 123, Centro, Imbituva_" 
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      coordinates: coordinates
+    });
+  } catch (error) {
+    console.error('Erro ao converter endereço em coordenadas:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro ao processar o endereço. Por favor, tente novamente.' 
+    });
+  }
+});
+
+// Novo endpoint para calcular taxa de entrega com base no endereço
+app.post('/api/entrega/calcular-taxa', async (req, res) => {
+  try {
+    const { endereco } = req.body;
+    
+    if (!endereco) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Endereço não informado' 
+      });
+    }
+    
+    const result = await deliveryService.calcularTaxaPorEndereco(endereco);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Erro ao calcular taxa de entrega:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro ao calcular taxa de entrega. Por favor, tente novamente.' 
+    });
+  }
+});
+
+// Endpoint para criar pedido
+app.post('/api/pedidos', async (req, res) => {
+  try {
+    const { cliente, itens, total, entrega } = req.body;
+    
+    console.log('📥 Dados recebidos no backend - cliente:', {
+      whatsappId: cliente.whatsappId,
+      telefone: cliente.telefone,
+      nome: cliente.nome
+    });
+    
+    // Optional: enforce geolocation usage if configured via env var
+    const enforceGeolocation = process.env.ENFORCE_GEOLOCATION_CALCULATION === 'true';
+    if (enforceGeolocation) {
+      if (!entrega || !entrega.coordenadas || (!entrega.price && entrega.price !== 0)) {
+        return res.status(400).json({ success: false, error: 'Geolocation required to calculate delivery. Use the "Calcular frete" button.' });
+      }
+    }
+
+    // Inserir pedido
+    const nowIso = new Date().toISOString();
+    const result = await db.run(
+      'INSERT INTO pedidos (cliente_nome, cliente_telefone, cliente_endereco, forma_pagamento, total, distancia, valor_entrega, coordenadas_cliente, observacao_entrega, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [cliente.nome, cliente.telefone, cliente.endereco, cliente.pagamento, total, entrega?.distancia || null, (entrega?.price || entrega?.valor) || null, entrega?.coordenadas ? JSON.stringify(entrega.coordenadas) : null, (entrega && (entrega.addressNote || entrega.observacao)) || null, nowIso]
+    );
+    
+    const pedidoId = result.lastID;
+    
+    // Inserir itens do pedido
+    for (const item of itens) {
+      const adicionais = Array.isArray(item.adicionais) ? item.adicionais : [];
+      const observacao = item.observacao || '';
+      await db.run(
+        'INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_unitario, adicionais, observacao) VALUES (?, ?, ?, ?, ?, ?)',
+        [pedidoId, item.produto.id, item.quantidade, item.produto.preco, JSON.stringify(adicionais), observacao]
+      );
+    }
+    
+    // Se houver um ID do WhatsApp, enviar resumo do pedido (somente se robô estiver ligado)
+    if (cliente.whatsappId) {
+      if (robotEnabled) {
+        // Enviar notificação via WhatsApp (em background)
+        setImmediate(async () => {
+          try {
+            try {
+              await whatsappService.sendOrderSummaryToId(cliente.whatsappId, {
+              pedidoId,
+              cliente,
+              itens,
+              total,
+              entrega
+            });
+            } catch (error) {
+              console.error('Erro ao enviar notificação via WhatsApp:', error);
+            }
+          } catch (error) {
+            console.error('Erro ao enviar notificação via WhatsApp:', error);
+          }
+        });
+      } else {
+        console.log('🤖 Robô desligado - Mensagem para cliente NÃO enviada');
+      }
+    }
+    
+    // Enviar pedido para o grupo de entregas (em background) - somente se robô estiver ligado
+    if (robotEnabled) {
+      setImmediate(async () => {
+        try {
+          // Passar as informações completas do cliente, incluindo pagamento e troco
+          await whatsappService.sendOrderToDeliveryGroup({
+            pedidoId,
+            cliente: {
+              ...cliente,
+              pagamento: cliente.pagamento,
+              troco: cliente.troco
+            },
+            itens,
+            total,
+            entrega
+          });
+        } catch (error) {
+          console.error('Erro ao enviar pedido para o grupo de entregas:', error);
+        }
+      });
+    } else {
+      console.log('🤖 Robô desligado - Mensagem para grupo NÃO enviada');
+    }
+    
+    // Gerar JWT para guardar informações do cliente no browser (cookie httpOnly)
+    try {
+      const jwtSecret = process.env.JWT_SECRET || 'change_this_secret_in_env';
+      // Incluir informações de endereço/entrega para evitar recálculo futuro
+      const payload = {
+        whatsappId: cliente.whatsappId || null,
+        telefone: cliente.telefone || null,
+        nome: cliente.nome || null,
+        // último endereço conhecido (prefere o campo do cliente, senão dados de entrega)
+        endereco: cliente.endereco || (entrega && (entrega.address || entrega.endereco)) || null,
+        // taxa de entrega (price ou valor) — será usada para lembrar sem recálculo
+        deliveryFee: (entrega && (entrega.price ?? entrega.valor)) ?? null,
+        // distância (se disponível)
+        distancia: entrega?.distancia ?? null,
+        // coordenadas do último endereço (se disponíveis)
+        coordenadas: entrega?.coordenadas ?? entrega?.coordinates ?? null
+      };
+      // Expira em 90 dias
+      const token = jwt.sign(payload, jwtSecret, { expiresIn: '90d' });
+
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 90 * 24 * 60 * 60 * 1000,
+        sameSite: 'Lax',
+        path: '/'
+      };
+
+      // Setar cookie para uso em visitas futuras
+      res.cookie('brutus_token', token, cookieOptions);
+      // Log seguro: confirmar que o cookie foi setado (não logar o token em si)
+      console.log(`🔐 Cookie 'brutus_token' set for whatsappId=${payload.whatsappId || 'unknown'}; maxAge=${cookieOptions.maxAge}ms`);
+
+      // Retornar apenas confirmação (token está no cookie httpOnly)
+      res.json({ 
+        success: true, 
+        pedidoId: pedidoId,
+        message: 'Pedido criado com sucesso!'
+      });
+    } catch (err) {
+      console.warn('Não foi possível gerar JWT para o cliente:', err && err.message);
+      res.json({ 
+        success: true, 
+        pedidoId: pedidoId,
+        message: 'Pedido criado com sucesso!'
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao criar pedido:', error);
+    res.status(500).json({ error: 'Erro ao criar pedido' });
+  }
+});
+
+// Endpoint para buscar pedidos com itens
+app.get('/api/pedidos', async (req, res) => {
+  try {
+    // Buscar pedidos com informações do cliente
+    const pedidos = await db.all(`
+      SELECT p.*, 
+             c.nome as cliente_nome,
+             c.telefone as cliente_telefone,
+             c.endereco as cliente_endereco
+      FROM pedidos p
+      LEFT JOIN clientes c ON p.cliente_nome = c.nome
+      ORDER BY p.data DESC
+    `);
+    
+    // Buscar itens de cada pedido
+    for (const pedido of pedidos) {
+      const itens = await db.all(`
+        SELECT pi.*, pr.nome as produto_nome
+        FROM pedido_itens pi
+        LEFT JOIN produtos pr ON pi.produto_id = pr.id
+        WHERE pi.pedido_id = ?
+      `, [pedido.id]);
+      // Parse adicionais JSON
+      pedido.itens = itens.map(i => ({
+        ...i,
+        adicionais: i.adicionais ? (typeof i.adicionais === 'string' ? JSON.parse(i.adicionais) : i.adicionais) : []
+      }));
+      
+      // Adicionar status (por padrão, 'pending' para pedidos novos)
+      pedido.status = pedido.status || 'pending';
+    }
+    
+    res.json(pedidos);
+  } catch (error) {
+    console.error('Erro ao buscar pedidos:', error);
+    res.status(500).json({ error: 'Erro ao buscar pedidos' });
+  }
+});
+
+// Endpoint para buscar um pedido específico pelo ID
+app.get('/api/pedidos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Buscar pedido com informações do cliente
+    const pedido = await db.get(`
+      SELECT p.*, 
+             c.nome as cliente_nome,
+             c.telefone as cliente_telefone,
+             c.endereco as cliente_endereco
+      FROM pedidos p
+      LEFT JOIN clientes c ON p.cliente_nome = c.nome
+      WHERE p.id = ?
+    `, [id]);
+    
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    // Buscar itens do pedido
+    const itens = await db.all(`
+      SELECT pi.*, pr.nome as produto_nome
+      FROM pedido_itens pi
+      LEFT JOIN produtos pr ON pi.produto_id = pr.id
+      WHERE pi.pedido_id = ?
+    `, [id]);
+    pedido.itens = itens.map(i => ({
+      ...i,
+      adicionais: i.adicionais ? (typeof i.adicionais === 'string' ? JSON.parse(i.adicionais) : i.adicionais) : []
+    }));
+    
+    // Adicionar status (por padrão, 'pending' para pedidos novos)
+    pedido.status = pedido.status || 'pending';
+    
+    res.json(pedido);
+  } catch (error) {
+    console.error('Erro ao buscar pedido:', error);
+    res.status(500).json({ error: 'Erro ao buscar pedido' });
+  }
+});
+
+// Endpoint para obter estatísticas de produtos mais vendidos
+app.get('/api/estatisticas/produtos-mais-vendidos', async (req, res) => {
+  try {
+    const produtosMaisVendidos = await db.all(`
+      SELECT 
+        pr.nome as produto_nome,
+        pr.categoria as produto_categoria,
+        SUM(pi.quantidade) as total_vendido,
+        SUM(pi.quantidade * pi.preco_unitario) as valor_total
+      FROM pedido_itens pi
+      JOIN produtos pr ON pi.produto_id = pr.id
+      JOIN pedidos p ON pi.pedido_id = p.id
+      WHERE p.status != 'archived'
+      GROUP BY pi.produto_id, pr.nome, pr.categoria
+      ORDER BY total_vendido DESC
+      LIMIT 10
+    `);
+    
+    res.json(produtosMaisVendidos);
+  } catch (error) {
+    console.error('Erro ao buscar produtos mais vendidos:', error);
+    res.status(500).json({ error: 'Erro ao buscar produtos mais vendidos' });
+  }
+});
+
+// Endpoint para obter estatísticas de melhores clientes
+app.get('/api/estatisticas/melhores-clientes', async (req, res) => {
+  try {
+    const melhoresClientes = await db.all(`
+      SELECT 
+        c.nome as cliente_nome,
+        c.telefone as cliente_telefone,
+        COUNT(p.id) as total_pedidos,
+        SUM(p.total) as valor_total_gasto
+      FROM clientes c
+      JOIN pedidos p ON c.nome = p.cliente_nome
+      WHERE p.status != 'archived'
+      GROUP BY c.id, c.nome, c.telefone
+      ORDER BY valor_total_gasto DESC
+      LIMIT 10
+    `);
+    
+    res.json(melhoresClientes);
+  } catch (error) {
+    console.error('Erro ao buscar melhores clientes:', error);
+    res.status(500).json({ error: 'Erro ao buscar melhores clientes' });
+  }
+});
+
+// Endpoint para obter estatísticas de valores de entrega
+app.get('/api/estatisticas/valores-entrega', async (req, res) => {
+  try {
+    const valoresEntrega = await db.all(`
+      SELECT 
+        SUM(valor_entrega) as total_valor_entregas,
+        AVG(valor_entrega) as media_valor_entregas,
+        COUNT(*) as total_entregas
+      FROM pedidos
+      WHERE valor_entrega IS NOT NULL AND status != 'archived'
+    `);
+    
+    res.json(valoresEntrega[0] || { total_valor_entregas: 0, media_valor_entregas: 0, total_entregas: 0 });
+  } catch (error) {
+    console.error('Erro ao buscar valores de entrega:', error);
+    res.status(500).json({ error: 'Erro ao buscar valores de entrega' });
+  }
+});
+
+// Endpoint para obter estatísticas gerais
+app.get('/api/estatisticas/gerais', async (req, res) => {
+  try {
+    const estatisticasGerais = await db.all(`
+      SELECT 
+        COUNT(*) as total_pedidos,
+        SUM(total) as valor_total_pedidos,
+        AVG(total) as ticket_medio,
+        COUNT(DISTINCT cliente_nome) as total_clientes
+      FROM pedidos
+      WHERE status != 'archived'
+    `);
+    
+    res.json(estatisticasGerais[0] || { total_pedidos: 0, valor_total_pedidos: 0, ticket_medio: 0, total_clientes: 0 });
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas gerais:', error);
+    res.status(500).json({ error: 'Erro ao buscar estatísticas gerais' });
+  }
+});
+
+// Endpoints para gerenciar categorias
+app.get('/api/categorias', async (req, res) => {
+  try {
+    const categorias = await db.all('SELECT * FROM categorias ORDER BY nome');
+    res.json({ success: true, categorias });
+  } catch (error) {
+    console.error('Erro ao buscar categorias:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar categorias' });
+  }
+});
+
+app.post('/api/categorias', async (req, res) => {
+  try {
+    const { nome } = req.body;
+    if (!nome || String(nome).trim() === '') return res.status(400).json({ success: false, error: 'Nome inválido' });
+    const result = await db.run('INSERT INTO categorias (nome) VALUES (?)', [String(nome).trim()]);
+    res.json({ success: true, categoria: { id: result.lastID, nome: String(nome).trim() } });
+  } catch (error) {
+    console.error('Erro ao criar categoria:', error);
+    res.status(500).json({ success: false, error: 'Erro ao criar categoria' });
+  }
+});
+
+app.delete('/api/categorias/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Antes de remover, setar produtos com essa categoria para NULL
+    const categoria = await db.get('SELECT * FROM categorias WHERE id = ?', [id]);
+    if (!categoria) return res.status(404).json({ success: false, error: 'Categoria não encontrada' });
+    await db.run('UPDATE produtos SET categoria = NULL WHERE categoria = ?', [categoria.nome]);
+    await db.run('DELETE FROM categorias WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao excluir categoria:', error);
+    res.status(500).json({ success: false, error: 'Erro ao excluir categoria' });
+  }
+});
+
+// Endpoint para buscar informações do cliente pelo WhatsApp ID
+app.get('/api/clientes/:whatsappId', async (req, res) => {
+  try {
+    const { whatsappId } = req.params;
+    // Tentar formas variadas para corresponder ao whatsappId (com/s/sem sufixo @c.us)
+    const digitOnly = String(whatsappId || '').replace(/\D/g, '');
+    const trySuffix = String(whatsappId || '').includes('@') ? whatsappId : whatsappId + '@c.us';
+
+    const cliente = await db.get(
+      `SELECT * FROM clientes WHERE whatsapp_id = ? OR whatsapp_id = ? OR REPLACE(REPLACE(whatsapp_id, '@c.us', ''), '@g.us', '') = ?`,
+      [whatsappId, trySuffix, digitOnly]
+    );
+    
+    if (cliente) {
+      res.json({ success: true, cliente });
+    } else {
+      res.json({ success: false, message: 'Cliente não encontrado' });
+    }
+  } catch (error) {
+    console.error('Erro ao buscar cliente:', error);
+    res.status(500).json({ error: 'Erro ao buscar cliente' });
+  }
+});
+
+// Novo endpoint para obter o QR Code do WhatsApp
+app.get('/api/whatsapp/qr-code', async (req, res) => {
+  try {
+    if (!whatsappService) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Serviço do WhatsApp não inicializado',
+        status: 'unavailable'
+      });
+    }
+    
+    // Obter status da conexão
+    const status = whatsappService.getStatus();
+    
+    // Se já estiver conectado, retornar status de sucesso
+    if (status.connected) {
+      return res.json({ 
+        success: true, 
+        status: 'connected',
+        message: 'WhatsApp já está conectado'
+      });
+    }
+    
+    // Se não houver QR Code disponível, retornar status apropriado
+    if (!status.qrCodeAvailable) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Nenhum QR Code disponível. O cliente do WhatsApp ainda não foi inicializado.',
+        status: 'pending'
+      });
+    }
+    
+    // Gerar e retornar o QR Code
+    const qrCodeDataURL = await whatsappService.getQRCodeDataURL();
+    res.json({ 
+      success: true, 
+      status: 'qr_available',
+      qrCode: qrCodeDataURL 
+    });
+  } catch (error) {
+    console.error('Erro ao obter QR Code:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      status: 'error'
+    });
+  }
+});
+
+// Endpoint para listar grupos do WhatsApp
+app.get('/api/whatsapp/groups', async (req, res) => {
+  try {
+    if (!whatsappService) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Serviço do WhatsApp não inicializado'
+      });
+    }
+    
+    const groups = await whatsappService.listGroups();
+    res.json({ 
+      success: true, 
+      groups: groups,
+      currentGroupId: process.env.WHATSAPP_GROUP_ID || null
+    });
+  } catch (error) {
+    console.error('Erro ao listar grupos:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para salvar/atualizar informações do cliente
+app.post('/api/clientes', async (req, res) => {
+  try {
+    const { whatsappId, nome, telefone, endereco } = req.body;
+    
+    // Verificar se o cliente já existe
+    const clienteExistente = await db.get(
+      'SELECT * FROM clientes WHERE whatsapp_id = ?',
+      [whatsappId]
+    );
+    
+    if (clienteExistente) {
+      // Atualizar informações do cliente existente
+      await db.run(
+        'UPDATE clientes SET nome = ?, telefone = ?, endereco = ?, data_atualizacao = datetime("now") WHERE whatsapp_id = ?',
+        [nome, telefone, endereco, whatsappId]
+      );
+      res.json({ success: true, message: 'Informações do cliente atualizadas com sucesso!' });
+    } else {
+      // Criar novo cliente
+      await db.run(
+        'INSERT INTO clientes (whatsapp_id, nome, telefone, endereco) VALUES (?, ?, ?, ?)',
+        [whatsappId, nome, telefone, endereco]
+      );
+      res.json({ success: true, message: 'Cliente cadastrado com sucesso!' });
+    }
+  } catch (error) {
+    console.error('Erro ao salvar cliente:', error);
+    res.status(500).json({ error: 'Erro ao salvar cliente' });
+  }
+});
+
+// Endpoint para salvar configurações de personalização
+app.post('/api/custom-settings', async (req, res) => {
+  try {
+    const settings = req.body;
+    
+    // Salvar configurações em um arquivo JSON
+    const settingsPath = path.join(__dirname, 'custom-settings.json');
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    
+    res.json({ 
+      success: true, 
+      message: 'Configurações salvas com sucesso!' 
+    });
+  } catch (error) {
+    console.error('Erro ao salvar configurações:', error);
+    res.status(500).json({ error: 'Erro ao salvar configurações' });
+  }
+});
+
+// Endpoint para obter configurações de personalização
+app.get('/api/custom-settings', (req, res) => {
+  try {
+    const settingsPath = path.join(__dirname, 'custom-settings.json');
+    
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      // Override restaurantName with env var if provided
+      settings.restaurantName = process.env.RESTAURANT_NAME || settings.restaurantName || 'Brutus Burger';
+      // Include app domain if provided
+      if (process.env.APP_DOMAIN && !settings.domain) settings.domain = process.env.APP_DOMAIN;
+      res.json(settings);
+    } else {
+      // Retornar configurações padrão com possibilidade de override via .env
+      res.json({
+        restaurantName: process.env.RESTAURANT_NAME || 'Brutus Burger',
+        contact: '(42) 9 99830-2047',
+        primaryColor: '#27ae60',
+        secondaryColor: '#f39c12',
+        backgroundColor: '#121212',
+        hours: '18:00 às 23:00',
+        pixKey: '',
+        pixName: '',
+        logo: null,
+        theme: 'dark',
+        domain: process.env.APP_DOMAIN || undefined
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar configurações:', error);
+    res.status(500).json({ error: 'Erro ao carregar configurações' });
+  }
+});
+
+// Endpoint para resetar configurações para o padrão
+app.post('/api/custom-settings/reset', (req, res) => {
+  try {
+    const settingsPath = path.join(__dirname, 'custom-settings.json');
+    
+    // Configurações padrão
+    const defaultSettings = {
+      restaurantName: process.env.RESTAURANT_NAME || 'Brutus Burger',
+      contact: '(42) 9 99830-2047',
+      primaryColor: '#27ae60',
+      hours: '18:00 às 23:00',
+      secondaryColor: '#f39c12',
+      backgroundColor: '#121212',
+      pixKey: '',
+      pixName: '',
+      logo: null,
+      theme: 'dark'
+    };
+    
+    // Salvar configurações padrão
+    // Ensure domain is present in default settings if provided
+    if (process.env.APP_DOMAIN) defaultSettings.domain = process.env.APP_DOMAIN;
+    fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2));
+    
+    res.json({ 
+      success: true, 
+      message: 'Configurações restauradas para o padrão!',
+      settings: defaultSettings
+    });
+  } catch (error) {
+    console.error('Erro ao resetar configurações:', error);
+    res.status(500).json({ error: 'Erro ao resetar configurações' });
+  }
+});
+
+// Endpoint para atualizar produto com imagem (URL)
+app.post('/api/produtos/:id/imagem', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imagem } = req.body;
+    
+    // Atualizar produto com a URL da imagem
+    await db.run(
+      'UPDATE produtos SET imagem = ? WHERE id = ?',
+      [imagem, id]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Imagem atualizada com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar imagem:', error);
+    res.status(500).json({ error: 'Erro ao atualizar imagem' });
+  }
+});
+
+// Endpoint para atualizar dados do produto (nome, descricao, preco, categoria)
+app.put('/api/produtos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, descricao, preco, categoria } = req.body;
+    
+    // Atualizar produto com os novos dados
+    await db.run(
+      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, categoria = ? WHERE id = ?',
+      [nome, descricao, preco, categoria, id]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Produto atualizado com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar produto:', error);
+    res.status(500).json({ error: 'Erro ao atualizar produto' });
+  }
+});
+
+// Endpoint para excluir produto
+app.delete('/api/produtos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verificar se o produto existe
+    const produto = await db.get('SELECT * FROM produtos WHERE id = ?', [id]);
+    
+    if (!produto) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    // Excluir o produto
+    await db.run('DELETE FROM produtos WHERE id = ?', [id]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Produto excluído com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao excluir produto:', error);
+    res.status(500).json({ error: 'Erro ao excluir produto' });
+  }
+});
+
+// Endpoint para criar novo produto
+app.post('/api/produtos', async (req, res) => {
+  try {
+    const { nome, descricao, preco, categoria, imagem } = req.body;
+    
+    // Validar campos obrigatórios
+    if (!nome || !preco || !categoria) {
+      return res.status(400).json({ error: 'Nome, preço e categoria são obrigatórios' });
+    }
+    
+    // Inserir novo produto
+    const result = await db.run(
+      'INSERT INTO produtos (nome, descricao, preco, categoria, imagem) VALUES (?, ?, ?, ?, ?)',
+      [nome, descricao || '', preco, categoria, imagem || null]
+    );
+    
+    const novoProduto = {
+      id: result.lastID,
+      nome,
+      descricao: descricao || '',
+      preco,
+      categoria,
+      imagem: imagem || null
+    };
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Produto criado com sucesso!',
+      produto: novoProduto
+    });
+  } catch (error) {
+    console.error('Erro ao criar produto:', error);
+    res.status(500).json({ error: 'Erro ao criar produto' });
+  }
+});
+
+// Endpoint para upload de imagem
+app.post('/api/produtos/:id/upload', upload.single('imagem'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhuma imagem foi enviada' });
+    }
+    
+    // Caminho relativo para servir a imagem
+    const imagePath = `/uploads/${req.file.filename}`;
+    
+    // Atualizar produto com o caminho da imagem
+    await db.run(
+      'UPDATE produtos SET imagem = ? WHERE id = ?',
+      [imagePath, id]
+    );
+    
+    res.json({ 
+      success: true, 
+      imagePath: imagePath,
+      message: 'Imagem atualizada com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload da imagem:', error);
+    res.status(500).json({ error: 'Erro ao fazer upload da imagem' });
+  }
+});
+
+// Endpoint para atualizar status do pedido
+app.put('/api/pedidos/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Verificar se o pedido existe
+    const pedido = await db.get('SELECT * FROM pedidos WHERE id = ?', [id]);
+    
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    // Atualizar status do pedido
+    await db.run('UPDATE pedidos SET status = ? WHERE id = ?', [status, id]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Status do pedido atualizado com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar status do pedido:', error);
+    res.status(500).json({ error: 'Erro ao atualizar status do pedido' });
+  }
+});
+
+// Helper: recalcular total do pedido baseado nos itens + taxa de entrega
+async function recalcularTotalPedido(pedidoId) {
+  // Somar itens (incluindo adicionais)
+  const itens = await db.all(`SELECT quantidade, preco_unitario, adicionais FROM pedido_itens WHERE pedido_id = ?`, [pedidoId]);
+  let subtotal = 0;
+  for (const it of itens) {
+    const q = Number(it.quantidade || 0);
+    const p = Number(it.preco_unitario || 0);
+    subtotal += q * p;
+    // Somar adicionais se houver
+    if (it.adicionais) {
+      try {
+        const ad = typeof it.adicionais === 'string' ? JSON.parse(it.adicionais) : it.adicionais;
+        if (Array.isArray(ad)) {
+          ad.forEach(a => {
+            const pa = Number((a && (a.preco || a.preco_unitario)) || 0);
+            subtotal += q * pa;
+          });
+        }
+      } catch (_) { /* ignore parse error */ }
+    }
+  }
+  const pedidoAtual = await db.get('SELECT valor_entrega FROM pedidos WHERE id = ?', [pedidoId]);
+  const entrega = pedidoAtual?.valor_entrega || 0;
+  const total = subtotal + (entrega || 0);
+  await db.run('UPDATE pedidos SET total = ? WHERE id = ?', [total, pedidoId]);
+  return total;
+}
+
+// Helper: carregar pedido completo com itens
+async function carregarPedidoCompleto(pedidoId) {
+  const pedido = await db.get(
+    `SELECT p.*, 
+            c.nome as cliente_nome,
+            c.telefone as cliente_telefone,
+            c.endereco as cliente_endereco
+       FROM pedidos p
+  LEFT JOIN clientes c ON p.cliente_nome = c.nome
+      WHERE p.id = ?`,
+    [pedidoId]
+  );
+  if (!pedido) return null;
+  const itens = await db.all(
+    `SELECT pi.*, pr.nome as produto_nome, pr.preco as produto_preco
+       FROM pedido_itens pi
+  LEFT JOIN produtos pr ON pi.produto_id = pr.id
+      WHERE pi.pedido_id = ?`,
+    [pedidoId]
+  );
+  pedido.itens = itens;
+  pedido.status = pedido.status || 'pending';
+  return pedido;
+}
+
+// Endpoints para gerenciar itens do pedido
+// Adicionar item ao pedido
+app.post('/api/pedidos/:id/itens', async (req, res) => {
+  try {
+    const { id } = req.params;
+  const { produto_id, quantidade, preco_unitario, adicionais, observacao } = req.body;
+
+    // Validar entrada
+    if (!produto_id || !quantidade || quantidade <= 0) {
+      return res.status(400).json({ error: 'produto_id e quantidade são obrigatórios' });
+    }
+
+    // Verificar se o produto existe
+    const produto = await db.get('SELECT * FROM produtos WHERE id = ?', [produto_id]);
+    if (!produto) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+
+    // Inserir item
+    await db.run(
+      'INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_unitario, adicionais, observacao) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, produto_id, quantidade, preco_unitario != null ? preco_unitario : produto.preco, adicionais ? JSON.stringify(adicionais) : null, observacao || null]
+    );
+
+    // Recalcular total
+    await recalcularTotalPedido(id);
+
+    const pedido = await carregarPedidoCompleto(id);
+    res.json({ success: true, pedido });
+  } catch (error) {
+    console.error('Erro ao adicionar item ao pedido:', error);
+    res.status(500).json({ error: 'Erro ao adicionar item ao pedido' });
+  }
+});
+
+// Atualizar item do pedido (quantidade e/ou preço)
+app.put('/api/pedidos/:id/itens/:itemId', async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+  const { quantidade, preco_unitario, adicionais, observacao } = req.body;
+
+    // Verificar se item existe
+    const item = await db.get('SELECT * FROM pedido_itens WHERE id = ? AND pedido_id = ?', [itemId, id]);
+    if (!item) {
+      return res.status(404).json({ error: 'Item do pedido não encontrado' });
+    }
+
+    // Atualizar campos informados
+  const q = quantidade != null ? quantidade : item.quantidade;
+  const p = preco_unitario != null ? preco_unitario : item.preco_unitario;
+  const ad = adicionais !== undefined ? (adicionais ? JSON.stringify(adicionais) : null) : item.adicionais;
+  const obs = observacao !== undefined ? (observacao || null) : item.observacao;
+  await db.run('UPDATE pedido_itens SET quantidade = ?, preco_unitario = ?, adicionais = ?, observacao = ? WHERE id = ?', [q, p, ad, obs, itemId]);
+
+    // Recalcular total
+    await recalcularTotalPedido(id);
+    const pedido = await carregarPedidoCompleto(id);
+    res.json({ success: true, pedido });
+  } catch (error) {
+    console.error('Erro ao atualizar item do pedido:', error);
+    res.status(500).json({ error: 'Erro ao atualizar item do pedido' });
+  }
+});
+
+// Remover item do pedido
+app.delete('/api/pedidos/:id/itens/:itemId', async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+
+    // Verificar se item existe
+    const item = await db.get('SELECT * FROM pedido_itens WHERE id = ? AND pedido_id = ?', [itemId, id]);
+    if (!item) {
+      return res.status(404).json({ error: 'Item do pedido não encontrado' });
+    }
+
+    await db.run('DELETE FROM pedido_itens WHERE id = ?', [itemId]);
+
+    // Recalcular total
+    await recalcularTotalPedido(id);
+    const pedido = await carregarPedidoCompleto(id);
+    res.json({ success: true, pedido });
+  } catch (error) {
+    console.error('Erro ao remover item do pedido:', error);
+    res.status(500).json({ error: 'Erro ao remover item do pedido' });
+  }
+});
+
+// Endpoint para atualizar o endereço do pedido (recalcula taxa opcionalmente)
+app.put('/api/pedidos/:id/endereco', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { endereco, recalc } = req.body; // recalc: boolean - se deve recalcular taxa/coordenadas
+
+    // Verificar se o pedido existe
+    const pedido = await db.get('SELECT * FROM pedidos WHERE id = ?', [id]);
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    // Atualizar endereço
+    await db.run('UPDATE pedidos SET cliente_endereco = ? WHERE id = ?', [endereco, id]);
+
+    // Opcional: recalcular taxa e coordenadas com base no novo endereço
+    let entregaInfo = null;
+    if (recalc) {
+      try {
+        const taxa = await deliveryService.calcularTaxaPorEndereco(endereco);
+        if (taxa && taxa.success) {
+          entregaInfo = {
+            distance: taxa.distance || taxa.distance === 0 ? taxa.distance : null,
+            price: taxa.price || null,
+            coordinates: taxa.coordinates || null,
+            // Indicar que a taxa/coordenaadas vieram de um endereço digitado
+            enderecoDigitado: Boolean(taxa.enderecoDigitado)
+          };
+
+          await db.run('UPDATE pedidos SET distancia = ?, valor_entrega = ?, coordenadas_cliente = ? WHERE id = ?', [
+            entregaInfo.distance,
+            entregaInfo.price,
+            entregaInfo.coordinates ? JSON.stringify(entregaInfo.coordinates) : null,
+            id
+          ]);
+        }
+      } catch (err) {
+        console.warn('Falha ao recalcular taxa por endereço:', err && err.message);
+      }
+    }
+
+    // Recarregar pedido e itens atualizados
+    const updatedPedido = await db.get('SELECT * FROM pedidos WHERE id = ?', [id]);
+    const itens = await db.all(`
+      SELECT pi.*, pr.nome as produto_nome, pr.preco as produto_preco
+      FROM pedido_itens pi
+      LEFT JOIN produtos pr ON pi.produto_id = pr.id
+      WHERE pi.pedido_id = ?
+    `, [id]);
+    // Parse adicionais JSON
+    const itensComAdicionais = itens.map(i => ({
+      ...i,
+      adicionais: i.adicionais ? (typeof i.adicionais === 'string' ? JSON.parse(i.adicionais) : i.adicionais) : []
+    }));
+
+    // Construir payload para envio via WhatsApp
+    const orderData = {
+      pedidoId: updatedPedido.id,
+      cliente: {
+        nome: updatedPedido.cliente_nome,
+        telefone: updatedPedido.cliente_telefone,
+        endereco: updatedPedido.cliente_endereco,
+        pagamento: updatedPedido.forma_pagamento,
+        troco: null
+      },
+      itens: itensComAdicionais.map(i => ({ quantidade: i.quantidade, observacao: i.observacao, adicionais: i.adicionais, produto: { id: i.produto_id, nome: i.produto_nome, preco: i.produto_preco } })),
+      total: updatedPedido.total,
+      entrega: {
+        distancia: updatedPedido.distancia,
+        price: updatedPedido.valor_entrega,
+        coordenadas: updatedPedido.coordenadas_cliente ? JSON.parse(updatedPedido.coordenadas_cliente) : null
+      }
+    };
+
+    // Enviar atualização para o grupo de entregas (somente se robô estiver ligado)
+    if (robotEnabled) {
+      setImmediate(async () => {
+        try {
+          await whatsappService.sendOrderToDeliveryGroup(orderData);
+        } catch (error) {
+          console.error('Erro ao reenviar pedido atualizado para o grupo:', error && error.message);
+        }
+      });
+    }
+
+    // Tentar enviar resumo ao cliente se houver whatsapp_id cadastrado na tabela clientes (somente se robô estiver ligado)
+    if (robotEnabled) {
+      setImmediate(async () => {
+        try {
+          const cliente = await db.get('SELECT * FROM clientes WHERE telefone = ?', [updatedPedido.cliente_telefone]);
+          if (cliente && cliente.whatsapp_id && whatsappService && whatsappService.client && whatsappService.isConnected) {
+              try {
+                await whatsappService.sendOrderSummaryToId(cliente.whatsapp_id || cliente.whatsappId || cliente.whatsapp, orderData);
+              } catch (err) {
+                console.warn('Não foi possível enviar resumo ao cliente via WhatsApp:', err && err.message);
+              }
+          }
+        } catch (err) {
+          console.warn('Erro ao buscar cliente para envio via WhatsApp:', err && err.message);
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Endereço do pedido atualizado com sucesso!', pedidoId: id });
+  } catch (error) {
+    console.error('Erro ao atualizar endereço do pedido:', error);
+    res.status(500).json({ error: 'Erro ao atualizar endereço do pedido' });
+  }
+});
+
+// Endpoint para excluir pedido
+app.delete('/api/pedidos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verificar se o pedido existe
+    const pedido = await db.get('SELECT * FROM pedidos WHERE id = ?', [id]);
+    
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    // Excluir itens do pedido
+    await db.run('DELETE FROM pedido_itens WHERE pedido_id = ?', [id]);
+    
+    // Excluir o pedido
+    await db.run('DELETE FROM pedidos WHERE id = ?', [id]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pedido excluído com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao excluir pedido:', error);
+    res.status(500).json({ error: 'Erro ao excluir pedido' });
+  }
+});
+
+// ============================================================
+// ENDPOINTS DE INSTALAÇÃO
+// ============================================================
+
+// Rota para página de instalação
+app.get('/install', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/install.html'));
+});
+
+// Verificar status da instalação
+app.get('/api/install/status', (req, res) => {
+  try {
+    const settingsPath = path.join(__dirname, 'custom-settings.json');
+    const envPath = path.join(__dirname, '..', '.env');
+    const deliveryConfigPath = path.join(__dirname, 'config', 'delivery.config.js');
+    
+    const installed = fs.existsSync(settingsPath) || fs.existsSync(envPath);
+    
+    let settings = null;
+    let env = {};
+    let deliveryConfig = null;
+    
+    // Carregar configurações existentes
+    if (fs.existsSync(settingsPath)) {
+      try {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      } catch (e) { /* ignorar */ }
+    }
+    
+    // Carregar variáveis de ambiente
+    env = {
+      PORT: process.env.PORT || '3005',
+      ORS_API_KEY: process.env.ORS_API_KEY || '',
+      RESTAURANT_LATITUDE: process.env.RESTAURANT_LATITUDE || '',
+      RESTAURANT_LONGITUDE: process.env.RESTAURANT_LONGITUDE || '',
+      WHATSAPP_GROUP_ID: process.env.WHATSAPP_GROUP_ID || '',
+      APP_DOMAIN: process.env.APP_DOMAIN || '',
+      RESTAURANT_NAME: process.env.RESTAURANT_NAME || ''
+    };
+    
+    // Carregar config de entrega
+    if (fs.existsSync(deliveryConfigPath)) {
+      try {
+        // Ler como texto e extrair dados (o arquivo é ES module)
+        const content = fs.readFileSync(deliveryConfigPath, 'utf8');
+        
+        // Extrair coordenadas
+        const latMatch = content.match(/lat:\s*([-\d.]+)/);
+        const lngMatch = content.match(/lng:\s*([-\d.]+)/);
+        
+        // Extrair regras de preço
+        const rulesMatch = content.match(/pricingRules:\s*\[([\s\S]*?)\]/);
+        let pricingRules = [];
+        if (rulesMatch) {
+          const rulesStr = rulesMatch[1];
+          const ruleMatches = rulesStr.matchAll(/\{\s*maxDistance:\s*([\d.]+),\s*price:\s*([\d.]+)\s*\}/g);
+          for (const m of ruleMatches) {
+            pricingRules.push({ maxDistance: parseFloat(m[1]), price: parseFloat(m[2]) });
+          }
+        }
+        
+        // Extrair distância máxima
+        const maxDistMatch = content.match(/maxDeliveryDistance:\s*([\d.]+)/);
+        
+        deliveryConfig = {
+          restaurantCoordinates: {
+            lat: latMatch ? parseFloat(latMatch[1]) : null,
+            lng: lngMatch ? parseFloat(lngMatch[1]) : null
+          },
+          pricingRules: pricingRules,
+          maxDeliveryDistance: maxDistMatch ? parseFloat(maxDistMatch[1]) : 70
+        };
+      } catch (e) {
+        console.warn('Erro ao ler config de entrega:', e.message);
+      }
+    }
+    
+    res.json({
+      installed,
+      settings,
+      env,
+      deliveryConfig
+    });
+  } catch (error) {
+    console.error('Erro ao verificar instalação:', error);
+    res.status(500).json({ error: 'Erro ao verificar instalação' });
+  }
+});
+
+// Salvar configuração de entrega
+app.post('/api/install/delivery-config', (req, res) => {
+  try {
+    const { latitude, longitude, maxDistance, pricingRules } = req.body;
+    
+    // Criar diretório se não existir
+    const configDir = path.join(__dirname, 'config');
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    
+    // Gerar arquivo de configuração
+    const rulesStr = pricingRules.map(r => 
+      `    { maxDistance: ${r.maxDistance}, price: ${r.price.toFixed(2)} }`
+    ).join(',\n');
+    
+    const configContent = `// Configuração do sistema de entrega
+// Gerado automaticamente pela página de instalação em ${new Date().toISOString()}
+export const deliveryConfig = {
+  // Coordenadas do restaurante
+  restaurantCoordinates: {
+    lat: ${latitude || -25.4284}, // Latitude do restaurante
+    lng: ${longitude || -49.2733}  // Longitude do restaurante
+  },
+  
+  // Regras de precificação por distância (em quilômetros)
+  // O sistema seleciona a primeira regra que corresponde à distância máxima
+  pricingRules: [
+${rulesStr}
+  ],
+  
+  // Área máxima de entrega em km
+  maxDeliveryDistance: ${maxDistance || 70},
+  
+  // Mensagem quando fora da área de entrega
+  outOfRangeMessage: "Desculpe, mas você está fora da nossa área de entrega (máximo de ${maxDistance || 70}km)."
+};
+`;
+    
+    const configPath = path.join(configDir, 'delivery.config.js');
+    fs.writeFileSync(configPath, configContent);
+    
+    console.log('✅ Configuração de entrega salva com sucesso');
+    
+    res.json({ 
+      success: true, 
+      message: 'Configuração de entrega salva com sucesso!' 
+    });
+  } catch (error) {
+    console.error('Erro ao salvar configuração de entrega:', error);
+    res.status(500).json({ error: 'Erro ao salvar configuração de entrega' });
+  }
+});
+
+// Salvar cardápio
+app.post('/api/install/cardapio', async (req, res) => {
+  try {
+    const cardapio = req.body;
+    
+    // Salvar arquivo JSON
+    const cardapioPath = path.join(__dirname, '..', 'cardapio.json');
+    fs.writeFileSync(cardapioPath, JSON.stringify(cardapio, null, 2));
+    
+    // Se o banco de dados já existe e não tem produtos, popular
+    if (db) {
+      const produtosExistentes = await db.get('SELECT COUNT(*) as count FROM produtos');
+      if (produtosExistentes.count === 0 && cardapio.categorias) {
+        for (const categoria of cardapio.categorias) {
+          // Inserir categoria
+          try {
+            await db.run('INSERT OR IGNORE INTO categorias (nome) VALUES (?)', [categoria.nome]);
+          } catch (e) { /* ignorar */ }
+          
+          // Inserir produtos
+          for (const item of categoria.itens) {
+            await db.run(
+              'INSERT INTO produtos (nome, descricao, preco, categoria) VALUES (?, ?, ?, ?)',
+              [item.nome, item.descricao || '', item.preco, categoria.nome]
+            );
+          }
+        }
+        console.log('✅ Cardápio importado para o banco de dados');
+      }
+    }
+    
+    console.log('✅ Cardápio salvo com sucesso');
+    
+    res.json({ 
+      success: true, 
+      message: 'Cardápio salvo com sucesso!' 
+    });
+  } catch (error) {
+    console.error('Erro ao salvar cardápio:', error);
+    res.status(500).json({ error: 'Erro ao salvar cardápio' });
+  }
+});
+
+// Salvar variáveis de ambiente
+app.post('/api/install/env-config', (req, res) => {
+  try {
+    const envVars = req.body;
+    const envPath = path.join(__dirname, '..', '.env');
+    
+    // Ler arquivo existente ou criar novo
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+    
+    // Função para atualizar ou adicionar variável
+    const updateEnvVar = (content, key, value) => {
+      if (!value && value !== 0) return content; // Não salvar se vazio
+      
+      const regex = new RegExp(`^${key}=.*$`, 'm');
+      const newLine = `${key}=${value}`;
+      
+      if (regex.test(content)) {
+        return content.replace(regex, newLine);
+      } else {
+        return content + (content.endsWith('\n') ? '' : '\n') + newLine + '\n';
+      }
+    };
+    
+    // Atualizar cada variável
+    Object.entries(envVars).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        envContent = updateEnvVar(envContent, key, value);
+      }
+    });
+    
+    // Garantir cabeçalho
+    if (!envContent.includes('# Arquivo de configuração')) {
+      envContent = `# Arquivo de configuração de variáveis de ambiente
+# Gerado/atualizado pela página de instalação em ${new Date().toISOString()}
+
+` + envContent;
+    }
+    
+    fs.writeFileSync(envPath, envContent);
+    
+    // Recarregar variáveis de ambiente
+    dotenv.config({ path: envPath, override: true });
+    
+    console.log('✅ Variáveis de ambiente salvas com sucesso');
+    
+    res.json({ 
+      success: true, 
+      message: 'Variáveis de ambiente salvas com sucesso!',
+      note: 'Algumas alterações podem requerer reinício do servidor.'
+    });
+  } catch (error) {
+    console.error('Erro ao salvar variáveis de ambiente:', error);
+    res.status(500).json({ error: 'Erro ao salvar variáveis de ambiente' });
+  }
+});
+
+// ============================================================
+// FIM DOS ENDPOINTS DE INSTALAÇÃO
+// ============================================================
+
+// Inicialização do banco e servidor
+async function startServer() {
+  try {
+    db = await open({
+      filename: path.join(__dirname, 'db.sqlite'),
+      driver: sqlite3.Database
+    });
+    
+    // Criar tabelas
+    await db.run(`CREATE TABLE IF NOT EXISTS produtos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT,
+      descricao TEXT,
+      preco REAL,
+      imagem TEXT,
+      categoria TEXT
+    )`);
+    
+    await db.run(`CREATE TABLE IF NOT EXISTS pedidos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_nome TEXT,
+      cliente_telefone TEXT,
+      cliente_endereco TEXT,
+      forma_pagamento TEXT,
+      total REAL,
+      distancia REAL,
+      valor_entrega REAL,
+      coordenadas_cliente TEXT,
+      data DATETIME,
+      status TEXT DEFAULT 'pending'
+    )`);
+    
+    // Adicionar colunas para entrega se não existirem
+    try {
+      await db.run(`ALTER TABLE pedidos ADD COLUMN distancia REAL`);
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
+    
+    try {
+      await db.run(`ALTER TABLE pedidos ADD COLUMN valor_entrega REAL`);
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
+    
+    try {
+      await db.run(`ALTER TABLE pedidos ADD COLUMN coordenadas_cliente TEXT`);
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
+    try { await db.run(`ALTER TABLE pedidos ADD COLUMN observacao_entrega TEXT`); } catch (e) { /* já existe */ }
+    
+    await db.run(`CREATE TABLE IF NOT EXISTS pedido_itens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pedido_id INTEGER,
+      produto_id INTEGER,
+      quantidade INTEGER,
+      preco_unitario REAL,
+      adicionais TEXT,        -- JSON com lista de adicionais do item
+      observacao TEXT         -- observação do item
+    )`);
+
+    // Adicionar colunas de adicionais/observacao se não existirem (migração suave)
+    try { await db.run(`ALTER TABLE pedido_itens ADD COLUMN adicionais TEXT`); } catch (e) { /* já existe */ }
+    try { await db.run(`ALTER TABLE pedido_itens ADD COLUMN observacao TEXT`); } catch (e) { /* já existe */ }
+    
+    // Criar tabela de clientes para armazenar informações persistentes
+    await db.run(`CREATE TABLE IF NOT EXISTS clientes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      whatsapp_id TEXT UNIQUE,
+      nome TEXT,
+      telefone TEXT,
+      endereco TEXT,
+      data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
+      data_atualizacao DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Criar tabela de categorias
+    await db.run(`CREATE TABLE IF NOT EXISTS categorias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT UNIQUE
+    )`);
+
+    // Popular tabela de categorias com categorias existentes dos produtos
+    try {
+      const distinctCats = await db.all('SELECT DISTINCT categoria as nome FROM produtos WHERE categoria IS NOT NULL');
+      for (const c of distinctCats) {
+        if (c && c.nome) {
+          try {
+            await db.run('INSERT OR IGNORE INTO categorias (nome) VALUES (?)', [c.nome]);
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    
+    // Verificar se há produtos, se não houver, popular o banco
+    const produtosExistentes = await db.get('SELECT COUNT(*) as count FROM produtos');
+    if (produtosExistentes.count === 0) {
+      await popularBancoDeDados();
+    }
+    
+    // Inicializar serviços
+    whatsappService = new WhatsAppService();
+    
+    // Configurar callback para verificar se o robô está ligado
+    whatsappService.setRobotEnabledCallback(() => robotEnabled);
+    
+    whatsappService.initialize();
+    
+    deliveryService = new DeliveryService();
+    
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando em http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Erro ao iniciar o servidor:', error);
+  }
+}
+
+// Função para popular o banco de dados com o cardápio completo
+async function popularBancoDeDados() {
+  try {
+    // Ler o arquivo cardapio.json
+    const cardapioPath = path.join(__dirname, '../cardapio.json');
+    const cardapioData = fs.readFileSync(cardapioPath, 'utf8');
+    const cardapio = JSON.parse(cardapioData);
+    
+    // Inserir produtos por categoria
+    for (const categoria of cardapio.categorias) {
+      for (const item of categoria.itens) {
+        await db.run(
+          'INSERT INTO produtos (nome, descricao, preco, categoria) VALUES (?, ?, ?, ?)',
+          [item.nome, item.descricao || '', item.preco, categoria.nome]
+        );
+      }
+    }
+    
+    console.log('Banco de dados populado com sucesso!');
+  } catch (error) {
+    console.error('Erro ao popular o banco de dados:', error);
+  }
+}
+
+startServer();

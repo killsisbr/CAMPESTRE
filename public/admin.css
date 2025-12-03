@@ -1,0 +1,159 @@
+/* Desktop-specific styles for admin page
+   Autoadaptative layout: sidebar + content grid
+   Loaded only by admin.html via <link rel="stylesheet" href="admin.css"> */
+
+/* Base adjustments when on admin page */
+.admin-page .mobile-container {
+  max-width: 1200px;
+  margin: 24px auto;
+  height: auto; /* allow page to grow vertically on desktop */
+  background: transparent;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  border-radius: 12px;
+  overflow: visible;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+
+/* Sidebar */
+.admin-page .app-header {
+  grid-column: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-radius: 8px;
+}
+
+/* Header actions (admin): force horizontal layout and consistent sizing */
+.admin-page .header-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.admin-page .header-actions .icon-button {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  padding: 8px;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.admin-page .admin-sidebar {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-dark);
+  padding: 16px;
+  height: calc(100% - 0px);
+  box-sizing: border-box;
+}
+
+.admin-page .admin-sidebar .sidebar-section {
+  margin-bottom: 16px;
+}
+
+.admin-page .admin-sidebar button, .admin-page .admin-sidebar .sidebar-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: #2d2d2d;
+  color: var(--text-primary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-dark);
+}
+
+/* Main content area */
+.admin-page .admin-products {
+  background: transparent;
+  padding: 0;
+  grid-column: 2 / 3;
+}
+
+.admin-page .products-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+/* Product card adjustments for desktop */
+.admin-page .admin-product-card {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.admin-page .admin-product-image {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  /* Alinhar o recorte pelo topo para evitar cortar a parte inferior da imagem */
+  object-position: top center;
+}
+
+.admin-page .admin-product-info {
+  padding: 12px 0;
+}
+
+.admin-page .admin-product-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* Modals center and larger on desktop */
+.admin-page .modal-content {
+  max-width: 900px;
+  margin: 40px auto;
+}
+
+/* Make edit modal image area larger */
+.admin-page .image-modal .modal-content {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 24px;
+}
+
+.admin-page .preview-image, .admin-page .draggable-image {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive fallback for medium screens */
+@media (max-width: 1100px) {
+  .admin-page .mobile-container {
+    grid-template-columns: 220px 1fr;
+  }
+  .admin-page .products-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  /* On small screens revert to the original mobile layout */
+  .admin-page .mobile-container {
+    display: block;
+    padding: 0;
+    grid-template-columns: none;
+  }
+  .admin-page .products-list {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  /* Keep admin header actions horizontal and compact on small screens */
+  .admin-page .header-actions {
+    gap: 6px;
+  }
+  .admin-page .header-actions .icon-button {
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+  }
+}

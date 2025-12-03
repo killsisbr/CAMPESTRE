@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - BrutusWeb</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="admin-page">
+  <div class="mobile-container">
+    </aside>
+    <!-- Cabeçalho -->
+    <header class="app-header">
+      <h1>Admin - Brutus Burger</h1>
+      <div class="header-actions">
+        <button id="whatsapp-btn" class="icon-button" title="Vincular WhatsApp">
+          <i class="fab fa-whatsapp"></i>
+        </button>
+        <!-- Botão para abrir o Quadro de Pedidos (versão PC) -->
+        <button id="open-quadro-pc-btn" class="icon-button" title="Abrir Quadro de Pedidos (PC)">
+          <i class="fas fa-desktop"></i>
+        </button>
+        <button id="customization-btn" class="icon-button" title="Personalização">
+          <i class="fas fa-palette"></i>
+        </button>
+          <button id="add-product-btn" class="icon-button" title="Adicionar Produto">
+            <i class="fas fa-plus"></i>
+          </button>
+          <button id="categories-btn" class="icon-button" title="Categorias">
+            <i class="fas fa-tags"></i>
+          </button>
+      </div>
+    </header>
+
+    <!-- Lista de Produtos -->
+    <section class="admin-products">
+      <h2>Gerenciar Produtos</h2>
+      <div id="products-list" class="products-list">
+        <!-- Produtos serão carregados aqui -->
+      </div>
+    </section>
+
+    <!-- Modal de Adição de Produto -->
+    <div id="add-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Adicionar Produto</h2>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="add-product-name">Nome:</label>
+            <input type="text" id="add-product-name" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="add-product-description">Descrição:</label>
+            <textarea id="add-product-description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="add-product-price">Preço (R$):</label>
+              <input type="number" id="add-product-price" class="form-control" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label for="add-product-category">Categoria:</label>
+              <input type="text" id="add-product-category" class="form-control" value="Lanches Especiais">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="add-product-image-url">URL da Imagem (opcional):</label>
+            <input type="text" id="add-product-image-url" class="form-control" placeholder="https://exemplo.com/imagem.jpg">
+          </div>
+          <div class="modal-actions">
+            <button id="add-product-save-btn" class="checkout-button">Adicionar Produto</button>
+            <button class="cancel-button close-button">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal de Gerenciamento de Categorias -->
+    <div id="categories-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Categorias</h2>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="categories-list" style="margin-bottom:16px;"></div>
+          <div class="form-row">
+            <input type="text" id="new-category-name" class="form-control" placeholder="Nome da nova categoria">
+            <button id="create-category-btn" class="checkout-button">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Edição de Produto -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-content image-modal">
+        <div class="modal-header">
+          <h2>Editar Produto</h2>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="product-preview">
+            <div class="image-container">
+              <img id="edit-product-image" src="" alt="" class="preview-image draggable-image">
+              <div class="zoom-controls">
+                <button id="zoom-in-btn" class="zoom-button">+</button>
+                <button id="zoom-out-btn" class="zoom-button">-</button>
+                <button id="reset-zoom-btn" class="zoom-button">Reset</button>
+              </div>
+            </div>
+            <div class="product-details">
+              <h3 id="edit-product-name-display"></h3>
+              <div class="product-price" id="edit-product-price-display"></div>
+            </div>
+          </div>
+          
+          <!-- Formulário de Edição -->
+          <div class="edit-form">
+            <div class="form-group">
+              <label for="edit-product-name">Nome:</label>
+              <input type="text" id="edit-product-name" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="edit-product-description">Descrição:</label>
+              <textarea id="edit-product-description" class="form-control" rows="3"></textarea>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-product-price">Preço (R$):</label>
+                <input type="number" id="edit-product-price" class="form-control" step="0.01" min="0">
+              </div>
+              
+              <div class="form-group">
+                <label for="edit-product-category">Categoria:</label>
+                <input type="text" id="edit-product-category" class="form-control">
+              </div>
+            </div>
+            
+            <button id="save-product-btn" class="checkout-button">Salvar Alterações</button>
+          </div>
+          
+          <!-- Abas para diferentes métodos de imagem -->
+          <div class="image-tabs">
+            <button id="tab-upload" class="tab-btn active">Upload</button>
+            <button id="tab-url" class="tab-btn">URL</button>
+          </div>
+          
+          <!-- Conteúdo das abas -->
+          <div id="upload-content" class="tab-content active">
+            <div class="image-upload-section">
+              <label for="image-file">Selecionar Imagem:</label>
+              <input type="file" id="image-file" accept="image/*">
+              <button id="upload-image-btn" class="checkout-button">Fazer Upload</button>
+            </div>
+          </div>
+          
+          <div id="url-content" class="tab-content">
+            <div class="image-url-section">
+              <label for="image-url">URL da Imagem:</label>
+              <input type="text" id="image-url" placeholder="https://exemplo.com/imagem.jpg">
+              <button id="save-url-btn" class="checkout-button">Salvar URL</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="delete-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Confirmar Exclusão</h2>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Você tem certeza que deseja excluir o produto <strong id="delete-product-name"></strong>?</p>
+          <p>Esta ação não pode ser desfeita.</p>
+          <div class="modal-actions">
+            <button id="cancel-delete-btn" class="cancel-button">Cancelar</button>
+            <button id="confirm-delete-btn" class="delete-button">Excluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal do QR Code do WhatsApp -->
+    <div id="whatsapp-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Vincular WhatsApp</h2>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Para vincular o WhatsApp do restaurante, escaneie o QR Code abaixo com o WhatsApp do seu celular:</p>
+          <div id="qr-code-container" class="qr-code-container">
+            <p>Carregando QR Code...</p>
+          </div>
+          <p><strong>Instruções:</strong></p>
+          <ol>
+            <li>Abra o WhatsApp no seu celular</li>
+            <li>Toque em "Dispositivos vinculados" ou "Linked Devices"</li>
+            <li>Selecione "Vincular um dispositivo" ou "Link a device"</li>
+            <li>Aponte a câmera do seu celular para o QR Code acima</li>
+          </ol>
+          <button id="refresh-qr-btn" class="checkout-button">Atualizar QR Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="apply-custom-settings.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // Abrir a versão PC do quadro em nova aba ao clicar no botão
+    (function() {
+      const btn = document.getElementById('open-quadro-pc-btn');
+      if (!btn) return;
+      btn.addEventListener('click', function() {
+        try {
+          window.open('quadro-pc.html', '_blank');
+        } catch (e) {
+          // fallback
+          window.location.href = 'quadro-pc.html';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "restaurantName": "Nome do Restaurante",
+  "contact": "(00) 0 0000-0000",
+  "hours": "18:00 às 23:00",
+  "primaryColor": "#27ae60",
+  "secondaryColor": "#f39c12",
+  "backgroundColor": "#121212",
+  "pixKey": "",
+  "pixName": "",
+  "logo": null,
+  "logoSize": 58,
+  "theme": "dark"
+}

@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personalização - BrutusWeb</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #27ae60;
+      --primary-dark: #1e8449;
+      --danger: #e74c3c;
+      --bg-dark: #0a0a0a;
+      --bg-card: #141414;
+      --bg-input: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-muted: #888;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Layout Principal */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      min-height: 100vh;
+    }
+
+    @media (max-width: 1024px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+      .preview-panel {
+        display: none;
+      }
+    }
+
+    /* Painel de Configurações */
+    .config-panel {
+      padding: 30px;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+
+    .config-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .config-header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .config-header h1 i {
+      color: var(--primary);
+    }
+
+    .back-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .back-btn:hover {
+      background: var(--border);
+    }
+
+    /* Tabs de Navegação */
+    .config-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      font-size: 0.95rem;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--primary);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* Seções de Configuração */
+    .config-section {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .config-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards de Configuração */
+    .config-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .config-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .config-card h3 i {
+      color: var(--primary);
+      font-size: 1.1rem;
+    }
+
+    /* Campos de Formulário */
+    .form-row {
+      margin-bottom: 18px;
+    }
+
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-input::placeholder {
+      color: #555;
+    }
+
+    /* Color Picker Moderno */
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .color-preview {
+      width: 50px;
+      height: 50px;
+      border-radius: var(--radius);
+      border: 2px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .color-preview input[type="color"] {
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      top: -25%;
+      left: -25%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .color-info {
+      flex: 1;
+    }
+
+    .color-info .color-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .color-info .color-hex {
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* Upload de Logo */
+    .logo-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .logo-upload-area:hover {
+      border-color: var(--primary);
+      background: rgba(39, 174, 96, 0.05);
+    }
+
+    .logo-upload-area.has-logo {
+      padding: 20px;
+    }
+
+    .logo-upload-area input[type="file"] {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .logo-upload-icon {
+      font-size: 3rem;
+      color: var(--text-muted);
+      margin-bottom: 15px;
+    }
+
+    .logo-upload-text {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .logo-upload-text span {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    #logo-preview-img {
+      max-width: 200px;
+      max-height: 120px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .logo-size-control {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .size-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .size-slider-row label {
+      min-width: 60px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .size-slider-row input[type="range"] {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      background: var(--border);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .size-slider-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .size-slider-row .size-value {
+      min-width: 50px;
+      text-align: right;
+      font-family: monospace;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Botões de Ação */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 30px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      flex: 1;
+      padding: 16px 24px;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-danger {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: rgba(231, 76, 60, 0.1);
+      border-color: var(--danger);
+    }
+
+    /* Painel de Preview */
+    .preview-panel {
+      background: var(--bg-card);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .preview-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .preview-header h2 i {
+      color: var(--primary);
+    }
+
+    .preview-content {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* Mock do App */
+    .app-mock {
+      background: var(--bg-dark);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .mock-header {
+      background: #000;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mock-logo {
+      height: 45px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .mock-logo-placeholder {
+      width: 45px;
+      height: 45px;
+      background: var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    .mock-name {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .mock-search {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .mock-hours {
+      background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+      color: white;
+      text-align: center;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .mock-categories {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      overflow-x: auto;
+    }
+
+    .mock-category {
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      background: var(--bg-input);
+      color: var(--text-muted);
+    }
+
+    .mock-category.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .mock-product {
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mock-product-img {
+      width: 80px;
+      height: 80px;
+      background: var(--border);
+      border-radius: 12px;
+    }
+
+    .mock-product-info {
+      flex: 1;
+    }
+
+    .mock-product-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .mock-product-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .mock-product-price {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .mock-cart-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      align-self: flex-end;
+    }
+
+    /* Notificação */
+    .notification {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: white;
+      padding: 16px 28px;
+      border-radius: var(--radius);
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 1000;
+      animation: slideUp 0.3s ease;
+    }
+
+    .notification.error {
+      background: var(--danger);
+    }
+
+    @keyframes slideUp {
+      from { transform: translate(-50%, 20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    /* Remover logo button */
+    .remove-logo-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--danger);
+      color: white;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .remove-logo-btn:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Painel de Configurações -->
+    <div class="config-panel">
+      <div class="config-header">
+        <h1><i class="fas fa-palette"></i> Personalização</h1>
+        <button class="back-btn" onclick="window.location.href='/admin.html'">
+          <i class="fas fa-arrow-left"></i> Voltar
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="config-tabs">
+        <button class="tab-btn active" data-tab="geral">
+          <i class="fas fa-store"></i> Geral
+        </button>
+        <button class="tab-btn" data-tab="aparencia">
+          <i class="fas fa-paint-brush"></i> Aparência
+        </button>
+        <button class="tab-btn" data-tab="pagamento">
+          <i class="fas fa-credit-card"></i> Pagamento
+        </button>
+      </div>
+
+      <!-- Seção Geral -->
+      <div class="config-section active" id="section-geral">
+        <div class="config-card">
+          <h3><i class="fas fa-info-circle"></i> Informações do Restaurante</h3>
+          
+          <div class="form-row">
+            <label class="form-label">Nome do Restaurante</label>
+            <input type="text" id="restaurant-name" class="form-input" placeholder="Ex: Brutus Burger">
+          </div>
+          
+          <div class="form-row">
+            <label class="form-label">Telefone/WhatsApp</label>
+            <input type="text" id="restaurant-contact" class="form-input" placeholder="(42) 99999-9999">
+          </div>
+          
+          <div class="form-row">
+            <label class="form-label">Horário de Funcionamento</label>
+            <input type="text" id="restaurant-hours" class="form-input" placeholder="18:00 às 23:00">
+          </div>
+        </div>
+
+        <div class="config-card">
+          <h3><i class="fas fa-image"></i> Logo do Restaurante</h3>
+          
+          <div class="logo-upload-area" id="logo-upload-area">
+            <input type="file" id="logo-upload" accept="image/*">
+            <div id="logo-placeholder">
+              <div class="logo-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+              <div class="logo-upload-text">
+                Arraste uma imagem ou <span>clique para selecionar</span>
+              </div>
+            </div>
+            <div id="logo-preview-container" style="display:none; position:relative;">
+              <img id="logo-preview-img" src="" alt="Logo">
+              <button type="button" class="remove-logo-btn" id="remove-logo-btn" title="Remover logo">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="logo-size-control" id="logo-size-control" style="display:none;">
+            <div class="size-slider-row">
+              <label>Tamanho</label>
+              <input type="range" id="logo-size" min="30" max="120" value="50">
+              <span class="size-value" id="logo-size-value">50px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção Aparência -->
+      <div class="config-section" id="section-aparencia">
+        <div class="config-card">
+          <h3><i class="fas fa-swatchbook"></i> Cores do Tema</h3>
+          
+          <div class="color-row">
+            <div class="color-preview" id="primary-preview">
+              <input type="color" id="primary-color" value="#27ae60">
+            </div>
+            <div class="color-info">
+              <div class="color-name">Cor Principal</div>
+              <div class="color-hex" id="primary-hex">#27ae60</div>
+            </div>
+          </div>
+
+          <div class="color-row">
+            <div class="color-preview" id="secondary-preview">
+              <input type="color" id="secondary-color" value="#f39c12">
+            </div>
+            <div class="color-info">
+              <div class="color-name">Cor Secundária</div>
+              <div class="color-hex" id="secondary-hex">#f39c12</div>
+            </div>
+          </div>
+
+          <div class="color-row">
+            <div class="color-preview" id="bg-preview">
+              <input type="color" id="background-color" value="#121212">
+            </div>
+            <div class="color-info">
+              <div class="color-name">Cor de Fundo</div>
+              <div class="color-hex" id="bg-hex">#121212</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-card">
+          <h3><i class="fas fa-moon"></i> Tema</h3>
+          <div class="form-row">
+            <select id="theme-selector" class="form-input">
+              <option value="dark">🌙 Modo Escuro</option>
+              <option value="light">☀️ Modo Claro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção Pagamento -->
+      <div class="config-section" id="section-pagamento">
+        <div class="config-card">
+          <h3><i class="fab fa-pix"></i> Configurações PIX</h3>
+          
+          <div class="form-row">
+            <label class="form-label">Chave PIX</label>
+            <input type="text" id="pix-key" class="form-input" placeholder="CPF, telefone, e-mail ou chave aleatória">
+          </div>
+          
+          <div class="form-row">
+            <label class="form-label">Nome do Titular</label>
+            <input type="text" id="pix-name" class="form-input" placeholder="Nome conforme cadastrado no banco">
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="action-buttons">
+        <button class="btn btn-primary" id="save-settings">
+          <i class="fas fa-check"></i> Salvar Alterações
+        </button>
+        <button class="btn btn-danger" id="reset-settings">
+          <i class="fas fa-undo"></i> Resetar
+        </button>
+      </div>
+    </div>
+
+    <!-- Painel de Preview -->
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h2><i class="fas fa-eye"></i> Pré-visualização</h2>
+      </div>
+      <div class="preview-content">
+        <div class="app-mock">
+          <div class="mock-hours" id="mock-hours">18:00 às 23:00</div>
+          <div class="mock-header">
+            <div id="mock-logo-container">
+              <div class="mock-logo-placeholder"><i class="fas fa-utensils"></i></div>
+            </div>
+            <span class="mock-name" id="mock-name">Restaurante</span>
+            <div class="mock-search">Buscar...</div>
+          </div>
+          <div class="mock-categories">
+            <div class="mock-category active">Lanches</div>
+            <div class="mock-category">Porções</div>
+            <div class="mock-category">Bebidas</div>
+          </div>
+          <div class="mock-product">
+            <div class="mock-product-img"></div>
+            <div class="mock-product-info">
+              <div class="mock-product-name">X-Burger Especial</div>
+              <div class="mock-product-desc">Pão, hambúrguer, queijo, alface e tomate</div>
+              <div class="mock-product-price" id="mock-price">R$ 28,00</div>
+            </div>
+            <div class="mock-cart-btn"><i class="fas fa-plus"></i></div>
+          </div>
+          <div class="mock-product">
+            <div class="mock-product-img"></div>
+            <div class="mock-product-info">
+              <div class="mock-product-name">Batata Frita</div>
+              <div class="mock-product-desc">Porção individual crocante</div>
+              <div class="mock-product-price">R$ 15,00</div>
+            </div>
+            <div class="mock-cart-btn"><i class="fas fa-plus"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Estado
+    let settings = {
+      restaurantName: '',
+      contact: '',
+      hours: '',
+      primaryColor: '#27ae60',
+      secondaryColor: '#f39c12',
+      backgroundColor: '#121212',
+      pixKey: '',
+      pixName: '',
+      logo: null,
+      logoSize: 50,
+      theme: 'dark'
+    };
+
+    // Elementos
+    const els = {
+      restaurantName: document.getElementById('restaurant-name'),
+      contact: document.getElementById('restaurant-contact'),
+      hours: document.getElementById('restaurant-hours'),
+      primaryColor: document.getElementById('primary-color'),
+      secondaryColor: document.getElementById('secondary-color'),
+      backgroundColor: document.getElementById('background-color'),
+      pixKey: document.getElementById('pix-key'),
+      pixName: document.getElementById('pix-name'),
+      logoUpload: document.getElementById('logo-upload'),
+      logoSize: document.getElementById('logo-size'),
+      logoSizeValue: document.getElementById('logo-size-value'),
+      themeSelector: document.getElementById('theme-selector'),
+      saveBtn: document.getElementById('save-settings'),
+      resetBtn: document.getElementById('reset-settings')
+    };
+
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      setupTabs();
+      setupColorPickers();
+      setupLogoUpload();
+      setupSizeSlider();
+      setupRealtimePreview();
+      setupActions();
+    });
+
+    // Carregar configurações do servidor
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/custom-settings');
+        if (res.ok) {
+          const data = await res.json();
+          settings = { ...settings, ...data };
+        }
+      } catch (e) {
+        console.error('Erro ao carregar:', e);
+      }
+
+      // Preencher campos
+      els.restaurantName.value = settings.restaurantName || '';
+      els.contact.value = settings.contact || '';
+      els.hours.value = settings.hours || '';
+      els.primaryColor.value = settings.primaryColor;
+      els.secondaryColor.value = settings.secondaryColor;
+      els.backgroundColor.value = settings.backgroundColor;
+      els.pixKey.value = settings.pixKey || '';
+      els.pixName.value = settings.pixName || '';
+      els.themeSelector.value = settings.theme || 'dark';
+      els.logoSize.value = settings.logoSize || 50;
+      els.logoSizeValue.textContent = (settings.logoSize || 50) + 'px';
+
+      // Atualizar color previews
+      updateColorPreview('primary', settings.primaryColor);
+      updateColorPreview('secondary', settings.secondaryColor);
+      updateColorPreview('bg', settings.backgroundColor);
+
+      // Logo
+      if (settings.logo) {
+        showLogoPreview(settings.logo);
+      }
+
+      // Atualizar preview do app
+      updateMockPreview();
+    }
+
+    // Tabs
+    function setupTabs() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.config-section').forEach(s => s.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('section-' + btn.dataset.tab).classList.add('active');
+        });
+      });
+    }
+
+    // Color Pickers
+    function setupColorPickers() {
+      els.primaryColor.addEventListener('input', (e) => {
+        settings.primaryColor = e.target.value;
+        updateColorPreview('primary', e.target.value);
+        updateMockPreview();
+      });
+
+      els.secondaryColor.addEventListener('input', (e) => {
+        settings.secondaryColor = e.target.value;
+        updateColorPreview('secondary', e.target.value);
+        updateMockPreview();
+      });
+
+      els.backgroundColor.addEventListener('input', (e) => {
+        settings.backgroundColor = e.target.value;
+        updateColorPreview('bg', e.target.value);
+        updateMockPreview();
+      });
+    }
+
+    function updateColorPreview(type, color) {
+      document.getElementById(type + '-preview').style.background = color;
+      document.getElementById(type + '-hex').textContent = color.toUpperCase();
+    }
+
+    // Logo Upload
+    function setupLogoUpload() {
+      els.logoUpload.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+          notify('Selecione um arquivo de imagem', 'error');
+          return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          notify('Imagem muito grande (máx 5MB)', 'error');
+          return;
+        }
+
+        try {
+          const compressed = await compressImage(file);
+          settings.logo = compressed;
+          showLogoPreview(compressed);
+          updateMockPreview();
+          notify('Logo carregada!');
+        } catch (err) {
+          notify('Erro ao processar imagem', 'error');
+        }
+      });
+
+      document.getElementById('remove-logo-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        settings.logo = null;
+        hideLogoPreview();
+        updateMockPreview();
+      });
+    }
+
+    function showLogoPreview(src) {
+      document.getElementById('logo-placeholder').style.display = 'none';
+      document.getElementById('logo-preview-container').style.display = 'block';
+      document.getElementById('logo-preview-img').src = src;
+      document.getElementById('logo-upload-area').classList.add('has-logo');
+      document.getElementById('logo-size-control').style.display = 'block';
+    }
+
+    function hideLogoPreview() {
+      document.getElementById('logo-placeholder').style.display = 'block';
+      document.getElementById('logo-preview-container').style.display = 'none';
+      document.getElementById('logo-upload-area').classList.remove('has-logo');
+      document.getElementById('logo-size-control').style.display = 'none';
+    }
+
+    function compressImage(file, maxW = 400, maxH = 200, quality = 0.8) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let w = img.width, h = img.height;
+            if (w > maxW) { h = (h * maxW) / w; w = maxW; }
+            if (h > maxH) { w = (w * maxH) / h; h = maxH; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Size Slider
+    function setupSizeSlider() {
+      els.logoSize.addEventListener('input', () => {
+        const size = els.logoSize.value;
+        els.logoSizeValue.textContent = size + 'px';
+        settings.logoSize = parseInt(size);
+        updateMockPreview();
+      });
+    }
+
+    // Preview em tempo real
+    function setupRealtimePreview() {
+      els.restaurantName.addEventListener('input', () => {
+        settings.restaurantName = els.restaurantName.value;
+        updateMockPreview();
+      });
+
+      els.hours.addEventListener('input', () => {
+        settings.hours = els.hours.value;
+        updateMockPreview();
+      });
+    }
+
+    function updateMockPreview() {
+      // Nome
+      document.getElementById('mock-name').textContent = settings.restaurantName || 'Restaurante';
+      
+      // Horário
+      document.getElementById('mock-hours').textContent = settings.hours || '18:00 às 23:00';
+      document.getElementById('mock-hours').style.background = `linear-gradient(90deg, ${settings.primaryColor}, ${adjustColor(settings.primaryColor, -20)})`;
+
+      // Cores
+      document.querySelectorAll('.mock-category.active').forEach(el => {
+        el.style.background = settings.primaryColor;
+      });
+      document.querySelectorAll('.mock-product-price').forEach(el => {
+        el.style.color = settings.primaryColor;
+      });
+      document.querySelectorAll('.mock-cart-btn').forEach(el => {
+        el.style.background = settings.primaryColor;
+      });
+
+      // Logo
+      const logoContainer = document.getElementById('mock-logo-container');
+      if (settings.logo) {
+        logoContainer.innerHTML = `<img class="mock-logo" src="${settings.logo}" style="height:${settings.logoSize}px;" alt="Logo">`;
+      } else {
+        logoContainer.innerHTML = `<div class="mock-logo-placeholder"><i class="fas fa-utensils"></i></div>`;
+      }
+    }
+
+    function adjustColor(color, amount) {
+      const hex = color.replace('#', '');
+      const r = Math.min(255, Math.max(0, parseInt(hex.substr(0,2), 16) + amount));
+      const g = Math.min(255, Math.max(0, parseInt(hex.substr(2,2), 16) + amount));
+      const b = Math.min(255, Math.max(0, parseInt(hex.substr(4,2), 16) + amount));
+      return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+    }
+
+    // Ações
+    function setupActions() {
+      els.saveBtn.addEventListener('click', saveSettings);
+      els.resetBtn.addEventListener('click', resetSettings);
+    }
+
+    async function saveSettings() {
+      settings.restaurantName = els.restaurantName.value;
+      settings.contact = els.contact.value;
+      settings.hours = els.hours.value;
+      settings.pixKey = els.pixKey.value;
+      settings.pixName = els.pixName.value;
+      settings.theme = els.themeSelector.value;
+
+      try {
+        const res = await fetch('/api/custom-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings)
+        });
+        const data = await res.json();
+        if (data.success) {
+          notify('Configurações salvas com sucesso!');
+        } else {
+          notify('Erro ao salvar: ' + data.error, 'error');
+        }
+      } catch (e) {
+        notify('Erro ao salvar configurações', 'error');
+      }
+    }
+
+    async function resetSettings() {
+      if (!confirm('Restaurar todas as configurações para o padrão?')) return;
+
+      try {
+        const res = await fetch('/api/custom-settings/reset', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          notify('Configurações restauradas!');
+          location.reload();
+        }
+      } catch (e) {
+        notify('Erro ao restaurar', 'error');
+      }
+    }
+
+    function notify(msg, type = 'success') {
+      const n = document.createElement('div');
+      n.className = 'notification' + (type === 'error' ? ' error' : '');
+      n.textContent = msg;
+      document.body.appendChild(n);
+      setTimeout(() => n.remove(), 3000);
+    }
+  </script>
+</body>
+</html>

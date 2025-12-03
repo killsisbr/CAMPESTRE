@@ -1,0 +1,128 @@
+# =================================================================
+# GITIGNORE - Sistema de Pedidos para Restaurantes
+# Este arquivo protege dados específicos de cada instalação
+# =================================================================
+
+# -----------------------------------------------------------------
+# DEPENDÊNCIAS - Node.js
+# -----------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm/
+*.tgz
+
+# -----------------------------------------------------------------
+# AMBIENTE E CONFIGURAÇÕES SENSÍVEIS
+# -----------------------------------------------------------------
+# Arquivo principal de configuração (contém senhas, chaves API, etc.)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Configurações customizadas do restaurante (cores, logo, nome, etc.)
+server/custom-settings.json
+
+# -----------------------------------------------------------------
+# DADOS DO CLIENTE - NUNCA VERSIONAR
+# -----------------------------------------------------------------
+# Banco de dados SQLite (pedidos, clientes, produtos cadastrados)
+server/*.db
+server/*.sqlite
+server/db.sqlite
+server/brutus.db
+*.db
+*.sqlite
+
+# Uploads de imagens (fotos de produtos, logo, etc.)
+server/uploads/
+uploads/
+
+# Pedidos exportados/backup
+server/pedidos.json
+pedidos.json
+
+# -----------------------------------------------------------------
+# CARDÁPIO E PRODUTOS
+# -----------------------------------------------------------------
+# Cada restaurante tem seu próprio cardápio
+cardapio.json
+
+# Previews de produtos (gerados pelo sistema)
+prods_preview.json
+products_preview.json
+
+# -----------------------------------------------------------------
+# WHATSAPP - SESSÕES E CACHE
+# -----------------------------------------------------------------
+# Sessões do WhatsApp (autenticação única por instalação)
+server/whatsapp-sessions/
+whatsapp-sessions/
+.wwebjs_auth/
+
+# Cache do WhatsApp Web.js
+server/.wwebjs_cache/
+.wwebjs_cache/
+
+# -----------------------------------------------------------------
+# CONFIGURAÇÕES ESPECÍFICAS DA INSTALAÇÃO
+# -----------------------------------------------------------------
+# Configuração de entrega (taxas, coordenadas, raio de entrega)
+server/config/delivery.config.js
+
+# -----------------------------------------------------------------
+# LOGS E ARQUIVOS TEMPORÁRIOS
+# -----------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+.cache/
+
+# -----------------------------------------------------------------
+# SISTEMA OPERACIONAL
+# -----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# -----------------------------------------------------------------
+# EDITORES E IDE
+# -----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------
+# BUILDS E DISTRIBUIÇÃO
+# -----------------------------------------------------------------
+dist/
+build/
+
+# -----------------------------------------------------------------
+# CERTIFICADOS SSL LOCAIS
+# -----------------------------------------------------------------
+*.pem
+*.key
+*.crt
+ssl/
+
+# -----------------------------------------------------------------
+# ARQUIVOS DE TESTE
+# -----------------------------------------------------------------
+test-data.json
+image_test.jpg
+
+# =================================================================
+# ARQUIVOS QUE DEVEM SER VERSIONADOS (exemplos/templates):
+# - .env.example
+# - cardapio.example.json
+# - server/custom-settings.example.json
+# - server/config/delivery.config.example.js
+# - INSTALL.md (documentação de instalação)
+# =================================================================

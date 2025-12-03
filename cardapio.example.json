@@ -1,0 +1,81 @@
+{
+  "restaurante": "Nome do Restaurante",
+  "contato": "(00) 0 0000-0000",
+  "categorias": [
+    {
+      "nome": "Lanches",
+      "itens": [
+        {
+          "nome": "X-Burguer",
+          "preco": 15.00,
+          "descricao": "Pão, hambúrguer, queijo e maionese"
+        },
+        {
+          "nome": "X-Salada",
+          "preco": 18.00,
+          "descricao": "Pão, hambúrguer, queijo, alface, tomate e maionese"
+        },
+        {
+          "nome": "X-Bacon",
+          "preco": 20.00,
+          "descricao": "Pão, hambúrguer, queijo, bacon e maionese"
+        }
+      ]
+    },
+    {
+      "nome": "Porções",
+      "itens": [
+        {
+          "nome": "Batata Frita",
+          "preco": 15.00,
+          "descricao": "Porção de batata frita crocante"
+        },
+        {
+          "nome": "Onion Rings",
+          "preco": 18.00,
+          "descricao": "Anéis de cebola empanados"
+        }
+      ]
+    },
+    {
+      "nome": "Bebidas",
+      "itens": [
+        {
+          "nome": "Refrigerante Lata",
+          "preco": 6.00,
+          "descricao": "350ml"
+        },
+        {
+          "nome": "Refrigerante 2L",
+          "preco": 12.00,
+          "descricao": "Garrafa 2 litros"
+        },
+        {
+          "nome": "Água Mineral",
+          "preco": 4.00,
+          "descricao": "500ml"
+        }
+      ]
+    },
+    {
+      "nome": "Adicionais",
+      "itens": [
+        {
+          "nome": "Queijo Extra",
+          "preco": 3.00,
+          "descricao": ""
+        },
+        {
+          "nome": "Bacon Extra",
+          "preco": 5.00,
+          "descricao": ""
+        },
+        {
+          "nome": "Hambúrguer Extra",
+          "preco": 8.00,
+          "descricao": ""
+        }
+      ]
+    }
+  ]
+}
