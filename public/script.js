@@ -152,11 +152,13 @@ function atualizarCarrossel() {
 }
 
 // Função para gerar SVG placeholder inline
-function getPlaceholderSVG(width, height, text = '') {
+function getPlaceholderSVG(width = 400, height = 300, text = 'Sem imagem') {
   // Codificar o texto para uso em SVG
   const encodedText = encodeURIComponent(text);
+  // Ícone de imagem genérico (path simplificado)
+  const iconPath = 'M4 4h24v24H4z M8 20l4-4 3 3 5-5 6 6';
   
-  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}' viewBox='0 0 ${width} ${height}'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial, sans-serif' font-size='${Math.min(width, height) / 8}' fill='%23666'%3E${encodedText}%3C/text%3E%3C/svg%3E`;
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}' viewBox='0 0 ${width} ${height}' preserveAspectRatio='xMidYMid meet'%3E%3Crect width='100%25' height='100%25' fill='%232a2a2a'/%3E%3Cg transform='translate(${width/2 - 40}, ${height/2 - 50})'%3E%3Crect x='10' y='10' width='60' height='50' rx='4' fill='none' stroke='%23555' stroke-width='3'/%3E%3Ccircle cx='28' cy='28' r='6' fill='%23555'/%3E%3Cpath d='M15 50 L30 38 L42 48 L55 32 L65 45 L65 55 L15 55 Z' fill='%23555'/%3E%3C/g%3E%3Ctext x='50%25' y='75%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial, sans-serif' font-size='16' fill='%23777'%3E${encodedText}%3C/text%3E%3C/svg%3E`;
 }
 
 // Renderizar produto atual no carrossel
@@ -170,10 +172,10 @@ function renderizarProdutoAtual() {
   elements.currentProduct.innerHTML = `
     <div class="product-card">
       <div class="product-image-container">
-        <img src="${produto.imagem || getPlaceholderSVG(300, 200, 'Imagem')}" 
+        <img src="${produto.imagem || getPlaceholderSVG(400, 300, 'Sem imagem')}" 
              alt="${produto.nome}" 
              class="product-image" 
-             onerror="this.src='${getPlaceholderSVG(300, 200, 'Erro')}'; this.onerror=null;">
+             onerror="this.src='${getPlaceholderSVG(400, 300, 'Imagem indisponível')}'; this.onerror=null;">
       </div>
       <div class="product-info">
         <h3 class="product-name">${produto.nome}</h3>
@@ -192,7 +194,7 @@ function renderizarProdutoAtual() {
 
 // Mostrar modal de seleção de quantidade
 function mostrarModalQuantidade(produto) {
-  elements.quantityProductImage.src = produto.imagem || getPlaceholderSVG(80, 80, 'Imagem');
+  elements.quantityProductImage.src = produto.imagem || getPlaceholderSVG(80, 80, '');
   elements.quantityProductImage.alt = produto.nome;
   elements.quantityProductName.textContent = produto.nome;
   elements.quantityProductPrice.textContent = `R$ ${produto.preco.toFixed(2).replace('.', ',')}`;

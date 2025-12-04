@@ -476,21 +476,25 @@ body {
 
 .product-image-container {
   width: 100%;
-  height: auto; /* deixar a altura automática para não forçar layout */
+  /* Manter proporção mínima mesmo sem imagem */
+  min-height: 180px;
+  aspect-ratio: 4 / 3;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: transparent;
+  background: #2a2a2a;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  overflow: hidden;
 }
 
 .product-image {
   width: 100%;
-  height: auto;
+  height: 100%;
   max-height: 320px; /* limitar altura máxima da imagem para não estourar o layout */
   /* Mostrar a imagem inteira sempre que possível para evitar zoom excessivo */
   object-fit: contain;
-  object-position: top center;
-  background: transparent;
+  object-position: center;
+  background: #2a2a2a;
 }
 
 .product-info {
@@ -2346,17 +2350,20 @@ body {
 
   /* Ajustar proporções da imagem e da área de informação para caber na viewport */
   .product-image-container {
-    height: 55%; /* reduzir um pouco a imagem para sobrar espaço para infos */
+    min-height: 140px;
+    max-height: 45vh;
+    aspect-ratio: 4 / 3;
+    background: #2a2a2a;
   }
 
   /* Em telas menores, evitar que a imagem fique excessivamente "zoomed" ao usar cover.
      Usar contain para mostrar a imagem completa (com possível letterbox) e limitar a altura. */
   .product-image {
     object-fit: contain;
-    max-height: 55vh; /* limite visual para evitar imagem muito grande */
+    max-height: 45vh; /* limite visual para evitar imagem muito grande */
     width: 100%;
-    height: auto;
-    background: transparent;
+    height: 100%;
+    background: #2a2a2a;
   }
 
   .product-info {
