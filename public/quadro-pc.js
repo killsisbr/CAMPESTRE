@@ -289,22 +289,24 @@ function renderizarItensEditor(pedido) {
 
     elements.orderItemsList.appendChild(row);
 
-    // Render extras area (adicionais, buffet e observação)
+    // Render extras area (adicionais, buffet, açaí e observação)
     const extras = document.createElement('div');
     extras.className = 'pc-item-extras';
     
-    // Verificar se adicionais é o novo formato { adicionais: [], buffet: [] } ou array antigo
+    // Verificar se adicionais é o novo formato { adicionais: [], buffet: [], acaiData: {} } ou array antigo
     let adicionaisList = [];
     let buffetList = [];
+    let acaiData = null;
     
     if (item.adicionais) {
       if (Array.isArray(item.adicionais)) {
         // Formato antigo: array direto
         adicionaisList = item.adicionais;
       } else if (typeof item.adicionais === 'object') {
-        // Novo formato: objeto com adicionais e buffet
+        // Novo formato: objeto com adicionais, buffet e acaiData
         adicionaisList = Array.isArray(item.adicionais.adicionais) ? item.adicionais.adicionais : [];
         buffetList = Array.isArray(item.adicionais.buffet) ? item.adicionais.buffet : [];
+        acaiData = item.adicionais.acaiData || null;
       }
     }
     
@@ -318,14 +320,29 @@ function renderizarItensEditor(pedido) {
       extras.appendChild(buffetLine);
     }
     
+    // Exibir dados do açaí
+    if (acaiData) {
+      // Exibir adicionais grátis do açaí
+      if (acaiData.adicionaisGratis && acaiData.adicionaisGratis.length > 0) {
+        const gratisLine = document.createElement('div');
+        const textoGratis = acaiData.adicionaisGratis.map(a => a.nome).join(', ');
+        gratisLine.className = 'extras-line';
+        gratisLine.style.color = '#27ae60';
+        gratisLine.innerHTML = `<i class="fas fa-gift"></i> Grátis: ${textoGratis}`;
+        extras.appendChild(gratisLine);
+      }
+      // Adicionais pagos estão em adicionaisList
+    }
+    
     // Exibir adicionais
     if (adicionaisList.length > 0) {
       const extrasLine = document.createElement('div');
+      const labelText = acaiData ? 'Extras' : 'Adicionais';
       const texto = adicionaisList
         .map(a => `${a.nome || a.produto_nome || 'Adicional'}${(a.preco||a.preco_unitario)?` (R$ ${Number(a.preco||a.preco_unitario).toFixed(2).replace('.', ',')})`:''}`)
         .join(', ');
       extrasLine.className = 'extras-line';
-      extrasLine.textContent = `Adicionais: ${texto}`;
+      extrasLine.textContent = `${labelText}: ${texto}`;
       extras.appendChild(extrasLine);
     }
     
@@ -954,6 +971,7 @@ function formatarPedidoParaImpressoraTermica(pedido) {
     // Verificar formato dos adicionais (novo ou antigo)
     let adicionaisList = [];
     let buffetList = [];
+    let acaiData = null;
     
     if (item.adicionais) {
       if (Array.isArray(item.adicionais)) {
@@ -961,6 +979,7 @@ function formatarPedidoParaImpressoraTermica(pedido) {
       } else if (typeof item.adicionais === 'object') {
         adicionaisList = Array.isArray(item.adicionais.adicionais) ? item.adicionais.adicionais : [];
         buffetList = Array.isArray(item.adicionais.buffet) ? item.adicionais.buffet : [];
+        acaiData = item.adicionais.acaiData || null;
       }
     }
     
@@ -973,9 +992,20 @@ function formatarPedidoParaImpressoraTermica(pedido) {
       });
     }
     
+    // Dados do açaí
+    if (acaiData) {
+      if (acaiData.adicionaisGratis && acaiData.adicionaisGratis.length > 0) {
+        linhas.push('   GRATIS:');
+        acaiData.adicionaisGratis.forEach(a => {
+          linhas.push(`   > ${a.nome}`);
+        });
+      }
+    }
+    
     // Adicionais (se houver)
     if (adicionaisList.length > 0) {
-      linhas.push('   ADICIONAIS:');
+      const labelAdicionais = acaiData ? 'EXTRAS' : 'ADICIONAIS';
+      linhas.push(`   ${labelAdicionais}:`);
       adicionaisList.forEach(adicional => {
         const nomeAdicional = adicional.produto_nome || adicional.nome || 'Adicional';
         const precoAdicional = adicional.preco_unitario || adicional.preco || 0;

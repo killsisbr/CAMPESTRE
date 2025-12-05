@@ -2411,27 +2411,120 @@ async function calcularEntrega(latitude, longitude) {
 // Tratar erros de localização
 function tratarErroLocalizacao(error) {
   let errorMessage = '';
+  let showRetryButton = false;
+  let showInstructions = false;
   
   switch (error.code) {
     case error.PERMISSION_DENIED:
-      errorMessage = 'Permissão para acessar localização negada. Por favor, habilite o acesso à localização nas configurações do seu navegador.';
+      errorMessage = 'Permissão para acessar localização negada.';
+      showRetryButton = true;
+      showInstructions = true;
       break;
     case error.POSITION_UNAVAILABLE:
       errorMessage = 'Informação de localização indisponível. Por favor, tente novamente.';
+      showRetryButton = true;
       break;
     case error.TIMEOUT:
       errorMessage = 'Tempo limite para obter localização esgotado. Por favor, tente novamente.';
+      showRetryButton = true;
       break;
     default:
       errorMessage = 'Erro desconhecido ao obter localização.';
+      showRetryButton = true;
       break;
   }
   
   if (elements.deliveryError) {
-    elements.deliveryError.textContent = errorMessage;
+    let htmlContent = `<div style="text-align: center;">
+      <p style="margin-bottom: 12px;">${errorMessage}</p>`;
+    
+    if (showInstructions) {
+      htmlContent += `
+      <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; font-size: 0.9rem;">
+        <p style="margin-bottom: 8px; font-weight: 600;"><i class="fas fa-info-circle"></i> Como habilitar a localização:</p>
+        <p style="margin-bottom: 4px;">📱 <strong>Celular:</strong> Toque no ícone de cadeado/configurações ao lado do endereço do site e permita "Localização".</p>
+        <p>💻 <strong>Computador:</strong> Clique no cadeado na barra de endereço → Permissões do site → Localização → Permitir.</p>
+      </div>`;
+    }
+    
+    if (showRetryButton) {
+      htmlContent += `
+      <button onclick="solicitarPermissaoLocalizacao()" style="
+        background: var(--primary-color, #e74c3c);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      ">
+        <i class="fas fa-location-arrow"></i> Tentar Novamente
+      </button>`;
+    }
+    
+    htmlContent += '</div>';
+    
+    elements.deliveryError.innerHTML = htmlContent;
     elements.deliveryError.style.display = 'block';
-    elements.deliveryInfo.style.display = 'none';
+    if (elements.deliveryInfo) elements.deliveryInfo.style.display = 'none';
   }
+}
+
+// Função para solicitar permissão de localização novamente
+async function solicitarPermissaoLocalizacao() {
+  // Verificar se a API de Permissions está disponível
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      
+      if (result.state === 'denied') {
+        // Permissão foi bloqueada permanentemente - mostrar instruções
+        if (elements.deliveryError) {
+          elements.deliveryError.innerHTML = `
+            <div style="text-align: center;">
+              <p style="margin-bottom: 12px; color: #f39c12;"><i class="fas fa-exclamation-triangle"></i> Localização bloqueada</p>
+              <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: left; font-size: 0.9rem;">
+                <p style="margin-bottom: 10px;">A permissão de localização está bloqueada. Para habilitar:</p>
+                <ol style="margin-left: 20px; line-height: 1.6;">
+                  <li>Clique no <strong>ícone de cadeado</strong> 🔒 na barra de endereço do navegador</li>
+                  <li>Encontre <strong>"Localização"</strong> ou <strong>"Permissões"</strong></li>
+                  <li>Altere para <strong>"Permitir"</strong></li>
+                  <li>Recarregue a página</li>
+                </ol>
+              </div>
+              <button onclick="window.location.reload()" style="
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 1rem;
+                font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 15px;
+              ">
+                <i class="fas fa-sync-alt"></i> Recarregar Página
+              </button>
+            </div>`;
+          elements.deliveryError.style.display = 'block';
+        }
+        return;
+      }
+    } catch (e) {
+      console.log('Permissions API não disponível, tentando diretamente');
+    }
+  }
+  
+  // Tentar obter localização novamente
+  usarLocalizacao();
 }
 
 // Atualizar estado dos botões do carrossel

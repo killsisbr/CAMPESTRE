@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciar Sistema de Açaí</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #7b2cbf;
+      --primary-dark: #5a189a;
+      --primary-light: #9d4edd;
+      --secondary: #e040fb;
+      --danger: #e74c3c;
+      --danger-dark: #c0392b;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --bg-dark: #1a1a2e;
+      --bg-card: #16213e;
+      --bg-input: #0f3460;
+      --text-primary: #ffffff;
+      --text-secondary: #b0b0b0;
+      --border-color: #404060;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #0f0f23 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header h1 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.8rem;
+    }
+
+    .header h1 i {
+      color: var(--primary-light);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .back-btn, .toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      font-size: 0.95rem;
+    }
+
+    .back-btn:hover, .toggle-btn:hover {
+      background: var(--bg-input);
+    }
+
+    .toggle-btn.active {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .toggle-btn.inactive {
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      background: var(--bg-card);
+      padding: 6px;
+      border-radius: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      flex: 1;
+      min-width: 150px;
+      padding: 14px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .tab:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Cards e Seções */
+    .section-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-color);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .section-header h2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.3rem;
+    }
+
+    .section-header h2 i {
+      color: var(--primary-light);
+    }
+
+    .info-box {
+      background: rgba(123, 44, 191, 0.1);
+      border: 1px solid var(--primary);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .info-box p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .info-box i {
+      color: var(--primary-light);
+      margin-right: 8px;
+    }
+
+    /* Formulários */
+    .add-form {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .form-group.flex-grow {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    input, select {
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-dark);
+    }
+
+    .btn-small {
+      padding: 8px 14px;
+      font-size: 0.9rem;
+    }
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    /* Lista de Itens */
+    .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
+    }
+
+    .item-card.inactive {
+      opacity: 0.5;
+      background: rgba(15, 52, 96, 0.5);
+    }
+
+    .item-card:hover {
+      border-color: var(--primary);
+    }
+
+    .item-icon {
+      width: 45px;
+      height: 45px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .item-icon.inactive {
+      background: var(--text-secondary);
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+    }
+
+    .item-details {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .item-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .item-detail i {
+      color: var(--primary-light);
+      font-size: 0.85rem;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .badge-success {
+      background: rgba(39, 174, 96, 0.2);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: rgba(243, 156, 18, 0.2);
+      color: var(--warning);
+    }
+
+    .badge-category {
+      background: rgba(123, 44, 191, 0.2);
+      color: var(--primary-light);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state p {
+      font-size: 1.1rem;
+    }
+
+    /* Config Section */
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .config-item {
+      background: var(--bg-input);
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .config-item h3 {
+      font-size: 1rem;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .config-item h3 i {
+      color: var(--primary-light);
+    }
+
+    .config-item p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      border-radius: 10px;
+      color: white;
+      font-weight: 500;
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: var(--success);
+    }
+
+    .toast.error {
+      background: var(--danger);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+      border: 1px solid var(--border-color);
+    }
+
+    .modal h3 {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal h3 i {
+      color: var(--primary-light);
+    }
+
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .modal-actions .btn {
+      flex: 1;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border-color);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsivo */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.4rem;
+      }
+
+      .add-form {
+        flex-direction: column;
+      }
+
+      .form-group {
+        width: 100%;
+      }
+
+      .item-card {
+        flex-wrap: wrap;
+      }
+
+      .item-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border-color);
+      }
+
+      .tabs {
+        flex-direction: column;
+      }
+
+      .tab {
+        min-width: unset;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1><i class="fas fa-ice-cream"></i> Sistema de Açaí</h1>
+      <div class="header-actions">
+        <button id="toggleSistema" class="toggle-btn active">
+          <i class="fas fa-power-off"></i>
+          <span>Sistema Ativo</span>
+        </button>
+        <a href="/dashboard.html" class="back-btn">
+          <i class="fas fa-arrow-left"></i>
+          Voltar
+        </a>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="produtos">
+        <i class="fas fa-ice-cream"></i>
+        Produtos Açaí
+      </button>
+      <button class="tab" data-tab="adicionais">
+        <i class="fas fa-plus-circle"></i>
+        Adicionais
+      </button>
+      <button class="tab" data-tab="config">
+        <i class="fas fa-cog"></i>
+        Configurações
+      </button>
+    </div>
+
+    <!-- Tab: Produtos Açaí -->
+    <div id="tab-produtos" class="tab-content active">
+      <div class="section-card">
+        <div class="section-header">
+          <h2><i class="fas fa-ice-cream"></i> Configurar Produtos de Açaí</h2>
+        </div>
+
+        <div class="info-box">
+          <p><i class="fas fa-info-circle"></i> Configure quantos adicionais grátis cada produto de açaí dá direito. Os produtos são carregados automaticamente da categoria configurada (padrão: "Açaí").</p>
+        </div>
+
+        <div id="produtosAcaiLista" class="item-list">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Adicionais -->
+    <div id="tab-adicionais" class="tab-content">
+      <div class="section-card">
+        <div class="section-header">
+          <h2><i class="fas fa-cookie-bite"></i> Adicionais de Açaí</h2>
+        </div>
+
+        <div class="info-box">
+          <p><i class="fas fa-info-circle"></i> Configure os adicionais disponíveis. Adicionais com preço R$ 0,00 serão considerados para a seleção de adicionais grátis. Organize por categorias para melhor visualização.</p>
+        </div>
+
+        <div class="add-form">
+          <div class="form-group flex-grow">
+            <label>Nome do Adicional</label>
+            <input type="text" id="adicionalNome" placeholder="Ex: Granola, Leite em pó, Morango...">
+          </div>
+          <div class="form-group">
+            <label>Preço (R$)</label>
+            <input type="number" id="adicionalPreco" placeholder="0.00" step="0.01" min="0" style="width: 120px;">
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <input type="text" id="adicionalCategoria" placeholder="Ex: Frutas, Caldas..." style="width: 150px;" list="categoriasSugestoes">
+            <datalist id="categoriasSugestoes">
+              <option value="Frutas">
+              <option value="Caldas">
+              <option value="Complementos">
+              <option value="Premium">
+              <option value="Cereais">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Ordem</label>
+            <input type="number" id="adicionalOrdem" placeholder="0" min="0" style="width: 80px;">
+          </div>
+          <div class="form-group" style="justify-content: flex-end;">
+            <button class="btn btn-primary" onclick="adicionarAdicional()">
+              <i class="fas fa-plus"></i> Adicionar
+            </button>
+          </div>
+        </div>
+
+        <div id="adicionaisLista" class="item-list">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Configurações -->
+    <div id="tab-config" class="tab-content">
+      <div class="section-card">
+        <div class="section-header">
+          <h2><i class="fas fa-sliders-h"></i> Configurações do Sistema</h2>
+        </div>
+
+        <div class="info-box">
+          <p><i class="fas fa-info-circle"></i> Configure o comportamento do sistema de açaí. O nome da categoria define qual categoria de produtos ativará o sistema especial de seleção.</p>
+        </div>
+
+        <div class="config-grid">
+          <div class="config-item">
+            <h3><i class="fas fa-tag"></i> Nome da Categoria</h3>
+            <p>Produtos desta categoria usarão o sistema especial de açaí.</p>
+            <input type="text" id="configCategoria" placeholder="Açaí" style="width: 100%;">
+          </div>
+
+          <div class="config-item">
+            <h3><i class="fas fa-power-off"></i> Status do Sistema</h3>
+            <p>Quando desativado, produtos de açaí usarão o sistema normal de adicionais.</p>
+            <button id="configAtivo" class="btn btn-success" onclick="toggleSistemaConfig()">
+              <i class="fas fa-check"></i> Sistema Ativo
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <button class="btn btn-primary" onclick="salvarConfiguracoes()">
+            <i class="fas fa-save"></i> Salvar Configurações
+          </button>
+        </div>
+      </div>
+
+      <!-- Estatísticas -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2><i class="fas fa-chart-bar"></i> Resumo</h2>
+        </div>
+
+        <div class="config-grid">
+          <div class="config-item">
+            <h3><i class="fas fa-ice-cream"></i> Produtos Açaí</h3>
+            <p id="statTamanhos">Carregando...</p>
+          </div>
+          <div class="config-item">
+            <h3><i class="fas fa-plus-circle"></i> Adicionais</h3>
+            <p id="statAdicionais">Carregando...</p>
+          </div>
+          <div class="config-item">
+            <h3><i class="fas fa-gift"></i> Adicionais Grátis</h3>
+            <p id="statGratis">Carregando...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Edição -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal">
+      <h3><i class="fas fa-edit"></i> <span id="modalTitulo">Editar Item</span></h3>
+      <form id="modalForm" class="modal-form">
+        <input type="hidden" id="editId">
+        <input type="hidden" id="editTipo">
+        <div id="modalCampos"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-danger" onclick="fecharModal()">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Estado
+    let produtosAcai = [];
+    let produtosConfig = {};
+    let adicionais = [];
+    let config = { habilitado: 1, categoria_nome: 'Açaí' };
+
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarDados();
+      configurarTabs();
+      configurarModal();
+    });
+
+    // Tabs
+    function configurarTabs() {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        });
+      });
+    }
+
+    // Carregar dados
+    async function carregarDados() {
+      await carregarConfig(); // Carregar config primeiro para saber a categoria
+      await Promise.all([
+        carregarProdutosAcai(),
+        carregarAdicionais()
+      ]);
+      atualizarEstatisticas();
+    }
+
+    async function carregarProdutosAcai() {
+      try {
+        // Buscar produtos da categoria de açaí
+        const categoriaNome = config.categoria_nome || 'Açaí';
+        const res = await fetch('/api/produtos');
+        const produtos = await res.json();
+        
+        // Filtrar produtos da categoria açaí
+        produtosAcai = produtos.filter(p => 
+          p.categoria && p.categoria.toLowerCase() === categoriaNome.toLowerCase()
+        );
+
+        // Buscar configurações de adicionais grátis por produto
+        const configRes = await fetch('/api/acai/produto-config');
+        const configData = await configRes.json();
+        
+        if (configData.success) {
+          produtosConfig = {};
+          configData.configs.forEach(c => {
+            produtosConfig[c.produto_id] = c.adicionais_gratis;
+          });
+        }
+        
+        renderizarProdutosAcai();
+      } catch (error) {
+        console.error('Erro ao carregar produtos de açaí:', error);
+        showToast('Erro ao carregar produtos', 'error');
+      }
+    }
+
+    async function carregarAdicionais() {
+      try {
+        const res = await fetch('/api/acai/adicionais/todos');
+        const data = await res.json();
+        if (data.success) {
+          adicionais = data.adicionais;
+          renderizarAdicionais();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar adicionais:', error);
+        showToast('Erro ao carregar adicionais', 'error');
+      }
+    }
+
+    async function carregarConfig() {
+      try {
+        const res = await fetch('/api/acai/config');
+        const data = await res.json();
+        if (data.success && data.config) {
+          config = data.config;
+          atualizarUIConfig();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar config:', error);
+      }
+    }
+
+    function atualizarUIConfig() {
+      document.getElementById('configCategoria').value = config.categoria_nome || 'Açaí';
+      
+      const btnConfig = document.getElementById('configAtivo');
+      const btnToggle = document.getElementById('toggleSistema');
+      
+      if (config.habilitado) {
+        btnConfig.className = 'btn btn-success';
+        btnConfig.innerHTML = '<i class="fas fa-check"></i> Sistema Ativo';
+        btnToggle.className = 'toggle-btn active';
+        btnToggle.innerHTML = '<i class="fas fa-power-off"></i><span>Sistema Ativo</span>';
+      } else {
+        btnConfig.className = 'btn btn-danger';
+        btnConfig.innerHTML = '<i class="fas fa-times"></i> Sistema Desativado';
+        btnToggle.className = 'toggle-btn inactive';
+        btnToggle.innerHTML = '<i class="fas fa-power-off"></i><span>Sistema Desativado</span>';
+      }
+    }
+
+    function atualizarEstatisticas() {
+      const produtosConfigurados = Object.keys(produtosConfig).length;
+      const adicionaisAtivos = adicionais.filter(a => a.ativo).length;
+      const adicionaisGratis = adicionais.filter(a => a.ativo && (!a.preco || a.preco === 0)).length;
+
+      document.getElementById('statTamanhos').textContent = `${produtosAcai.length} produtos na categoria "${config.categoria_nome}"`;
+      document.getElementById('statAdicionais').textContent = `${adicionaisAtivos} adicionais ativos de ${adicionais.length} total`;
+      document.getElementById('statGratis').textContent = `${adicionaisGratis} adicionais disponíveis para seleção grátis`;
+    }
+
+    // Renderizar lista de produtos de açaí
+    function renderizarProdutosAcai() {
+      const container = document.getElementById('produtosAcaiLista');
+      
+      if (produtosAcai.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-ice-cream"></i>
+            <p>Nenhum produto na categoria "${config.categoria_nome}"</p>
+            <p style="font-size: 0.9rem; margin-top: 8px; opacity: 0.7;">Adicione produtos nesta categoria no cadastro de produtos.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = produtosAcai.map(p => {
+        const gratisConfig = produtosConfig[p.id] || 0;
+        return `
+          <div class="item-card">
+            <div class="item-icon">
+              <i class="fas fa-ice-cream"></i>
+            </div>
+            <div class="item-info">
+              <div class="item-name">${escapeHtml(p.nome)}</div>
+              <div class="item-details">
+                <div class="item-detail">
+                  <i class="fas fa-tag"></i>
+                  R$ ${(p.preco || 0).toFixed(2)}
+                </div>
+                <div class="item-detail">
+                  <i class="fas fa-gift"></i>
+                  ${gratisConfig} adicionais grátis
+                </div>
+              </div>
+            </div>
+            <span class="badge ${gratisConfig > 0 ? 'badge-success' : 'badge-warning'}">
+              ${gratisConfig > 0 ? gratisConfig + ' grátis' : 'Não configurado'}
+            </span>
+            <div class="item-actions">
+              <div class="form-group" style="margin: 0; flex-direction: row; align-items: center; gap: 8px;">
+                <label style="white-space: nowrap; font-size: 0.85rem;">Grátis:</label>
+                <input type="number" 
+                       id="gratis-${p.id}" 
+                       value="${gratisConfig}" 
+                       min="0" 
+                       style="width: 70px; padding: 8px;"
+                       onchange="salvarConfigProduto(${p.id})">
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Salvar configuração de adicionais grátis por produto
+    async function salvarConfigProduto(produtoId) {
+      const input = document.getElementById('gratis-' + produtoId);
+      const adicionaisGratis = parseInt(input.value) || 0;
+
+      try {
+        const res = await fetch('/api/acai/produto-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ produto_id: produtoId, adicionais_gratis: adicionaisGratis })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          produtosConfig[produtoId] = adicionaisGratis;
+          showToast('Configuração salva!', 'success');
+          renderizarProdutosAcai();
+          atualizarEstatisticas();
+        } else {
+          showToast(data.error || 'Erro ao salvar', 'error');
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao salvar configuração', 'error');
+      }
+    }
+
+    function renderizarAdicionais() {
+      const container = document.getElementById('adicionaisLista');
+      
+      if (adicionais.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-cookie-bite"></i>
+            <p>Nenhum adicional cadastrado</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Agrupar por categoria
+      const porCategoria = {};
+      adicionais.forEach(a => {
+        const cat = a.categoria || 'Geral';
+        if (!porCategoria[cat]) porCategoria[cat] = [];
+        porCategoria[cat].push(a);
+      });
+
+      let html = '';
+      Object.keys(porCategoria).sort().forEach(cat => {
+        html += `<h4 style="margin: 16px 0 12px; color: var(--primary-light); display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-folder"></i> ${escapeHtml(cat)}
+        </h4>`;
+        
+        porCategoria[cat].forEach(a => {
+          const isGratis = !a.preco || a.preco === 0;
+          html += `
+            <div class="item-card ${a.ativo ? '' : 'inactive'}">
+              <div class="item-icon ${a.ativo ? '' : 'inactive'}">
+                <i class="fas fa-${isGratis ? 'gift' : 'dollar-sign'}"></i>
+              </div>
+              <div class="item-info">
+                <div class="item-name">${escapeHtml(a.nome)}</div>
+                <div class="item-details">
+                  <div class="item-detail">
+                    <i class="fas fa-tag"></i>
+                    ${isGratis ? 'Grátis (selecionável)' : 'R$ ' + (a.preco || 0).toFixed(2)}
+                  </div>
+                  <div class="item-detail">
+                    <i class="fas fa-sort-numeric-up"></i>
+                    Ordem: ${a.ordem || 0}
+                  </div>
+                </div>
+              </div>
+              <span class="badge ${isGratis ? 'badge-success' : 'badge-warning'}">
+                ${isGratis ? 'Grátis' : 'Pago'}
+              </span>
+              <span class="badge ${a.ativo ? 'badge-success' : 'badge-warning'}">
+                ${a.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+              <div class="item-actions">
+                <button class="btn btn-small btn-primary" onclick="editarAdicional(${a.id})" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-small ${a.ativo ? 'btn-danger' : 'btn-success'}" onclick="toggleAdicional(${a.id})" title="${a.ativo ? 'Desativar' : 'Ativar'}">
+                  <i class="fas fa-${a.ativo ? 'eye-slash' : 'eye'}"></i>
+                </button>
+                <button class="btn btn-small btn-danger" onclick="removerAdicional(${a.id})" title="Remover">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      });
+
+      container.innerHTML = html;
+    }
+
+    // CRUD Adicionais
+    async function adicionarAdicional() {
+      const nome = document.getElementById('adicionalNome').value.trim();
+      const preco = parseFloat(document.getElementById('adicionalPreco').value) || 0;
+      const categoria = document.getElementById('adicionalCategoria').value.trim() || 'Geral';
+      const ordem = parseInt(document.getElementById('adicionalOrdem').value) || 0;
+
+      if (!nome) {
+        showToast('Digite o nome do adicional', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/acai/adicionais', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, preco, categoria, ordem })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast('Adicional adicionado!', 'success');
+          document.getElementById('adicionalNome').value = '';
+          document.getElementById('adicionalPreco').value = '';
+          document.getElementById('adicionalOrdem').value = '';
+          await carregarAdicionais();
+          atualizarEstatisticas();
+        } else {
+          showToast(data.error || 'Erro ao adicionar', 'error');
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao adicionar adicional', 'error');
+      }
+    }
+
+    async function toggleAdicional(id) {
+      try {
+        const res = await fetch(`/api/acai/adicionais/${id}/toggle`, { method: 'PATCH' });
+        const data = await res.json();
+        if (data.success) {
+          await carregarAdicionais();
+          atualizarEstatisticas();
+          showToast('Status alterado!', 'success');
+        }
+      } catch (error) {
+        showToast('Erro ao alterar status', 'error');
+      }
+    }
+
+    async function removerAdicional(id) {
+      if (!confirm('Tem certeza que deseja remover este adicional?')) return;
+      
+      try {
+        const res = await fetch(`/api/acai/adicionais/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Adicional removido!', 'success');
+          await carregarAdicionais();
+          atualizarEstatisticas();
+        }
+      } catch (error) {
+        showToast('Erro ao remover', 'error');
+      }
+    }
+
+    function editarAdicional(id) {
+      const a = adicionais.find(x => x.id === id);
+      if (!a) return;
+
+      document.getElementById('editId').value = id;
+      document.getElementById('editTipo').value = 'adicional';
+      document.getElementById('modalTitulo').textContent = 'Editar Adicional';
+      
+      document.getElementById('modalCampos').innerHTML = `
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="editNome" value="${escapeHtml(a.nome)}" required>
+        </div>
+        <div class="form-group">
+          <label>Preço (R$) - 0 para grátis</label>
+          <input type="number" id="editPreco" value="${a.preco || 0}" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <input type="text" id="editCategoria" value="${escapeHtml(a.categoria || 'Geral')}" list="categoriasSugestoes">
+        </div>
+        <div class="form-group">
+          <label>Ordem</label>
+          <input type="number" id="editOrdem" value="${a.ordem || 0}" min="0">
+        </div>
+      `;
+
+      document.getElementById('modalOverlay').classList.add('show');
+    }
+
+    // Modal
+    function configurarModal() {
+      document.getElementById('modalForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const id = document.getElementById('editId').value;
+        const tipo = document.getElementById('editTipo').value;
+        
+        if (tipo === 'adicional') {
+          await salvarAdicional(id);
+        }
+      });
+
+      document.getElementById('modalOverlay').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modalOverlay')) {
+          fecharModal();
+        }
+      });
+    }
+
+    function fecharModal() {
+      document.getElementById('modalOverlay').classList.remove('show');
+    }
+
+    async function salvarAdicional(id) {
+      const nome = document.getElementById('editNome').value.trim();
+      const preco = parseFloat(document.getElementById('editPreco').value) || 0;
+      const categoria = document.getElementById('editCategoria').value.trim() || 'Geral';
+      const ordem = parseInt(document.getElementById('editOrdem').value) || 0;
+
+      try {
+        const res = await fetch(`/api/acai/adicionais/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, preco, categoria, ordem })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast('Adicional atualizado!', 'success');
+          fecharModal();
+          await carregarAdicionais();
+          atualizarEstatisticas();
+        }
+      } catch (error) {
+        showToast('Erro ao salvar', 'error');
+      }
+    }
+
+    // Configurações
+    function toggleSistemaConfig() {
+      config.habilitado = config.habilitado ? 0 : 1;
+      atualizarUIConfig();
+    }
+
+    document.getElementById('toggleSistema').addEventListener('click', () => {
+      toggleSistemaConfig();
+      salvarConfiguracoes();
+    });
+
+    async function salvarConfiguracoes() {
+      const categoria_nome = document.getElementById('configCategoria').value.trim() || 'Açaí';
+      
+      try {
+        const res = await fetch('/api/acai/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            habilitado: config.habilitado, 
+            categoria_nome 
+          })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          config = data.config;
+          atualizarUIConfig();
+          showToast('Configurações salvas!', 'success');
+          // Recarregar produtos caso a categoria tenha mudado
+          await carregarProdutosAcai();
+          atualizarEstatisticas();
+        }
+      } catch (error) {
+        showToast('Erro ao salvar configurações', 'error');
+      }
+    }
+
+    // Utilitários
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+  </script>
+</body>
+</html>

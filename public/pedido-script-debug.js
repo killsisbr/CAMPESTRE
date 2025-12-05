@@ -22,6 +22,14 @@ let isPickupMode = false; // Modo de retirada no balcão
 let pickupEnabled = false; // Configuração de retirada habilitada
 let buffetSelecionados = []; // Itens do buffet selecionados para marmita
 
+// Sistema de Açaí
+let acaiConfig = { habilitado: 1, categoria_nome: 'Açaí' }; // Configuração do sistema de açaí
+let acaiTamanhos = []; // Tamanhos disponíveis
+let acaiAdicionais = []; // Adicionais disponíveis
+let acaiTamanhoSelecionado = null; // Tamanho selecionado
+let acaiAdicionaisGratisSelecionados = []; // Adicionais grátis selecionados
+let acaiAdicionaisPagosSelecionados = []; // Adicionais pagos selecionados
+
 // Captura global de erros para facilitar depuração
 window.addEventListener('error', function(ev) {
   try {
@@ -941,7 +949,7 @@ function atualizarPrecoModalQuantidade() {
   }
 }
 
-// Carregar adicionais no modal (ou buffet para marmitas)
+// Carregar adicionais no modal (ou buffet para marmitas, ou sistema de açaí)
 async function carregarAdicionais() {
   console.log('🍔 carregarAdicionais() chamada');
   console.log('📦 produtoSelecionado:', produtoSelecionado);
@@ -957,6 +965,16 @@ async function carregarAdicionais() {
   if (isMarmita) {
     // Carregar buffet do dia ao invés de adicionais
     await carregarBuffetDoDia();
+    return;
+  }
+  
+  // Verificar se é categoria de Açaí (sistema especial)
+  const isAcai = await verificarSeAcai(categoriaProduto);
+  console.log('🍨 É açaí:', isAcai);
+  
+  if (isAcai) {
+    // Carregar sistema especial de açaí
+    await carregarSistemaAcai();
     return;
   }
   
@@ -1097,6 +1115,224 @@ async function carregarBuffetDoDia() {
     console.error('❌ Erro ao carregar buffet:', error);
     elements.additionalsSection.style.display = 'none';
   }
+}
+
+// ============================================================
+// SISTEMA DE AÇAÍ - FUNÇÕES
+// ============================================================
+
+// Verificar se a categoria é de açaí
+async function verificarSeAcai(categoriaNormalizada) {
+  try {
+    // Carregar configuração do açaí se ainda não foi carregada
+    if (!acaiConfig || acaiConfig.categoria_nome === undefined) {
+      const res = await fetch('/api/acai/config');
+      const data = await res.json();
+      if (data.success && data.config) {
+        acaiConfig = data.config;
+      }
+    }
+    
+    // Se o sistema não está habilitado, retornar false
+    if (!acaiConfig.habilitado) {
+      console.log('🍨 Sistema de açaí desabilitado');
+      return false;
+    }
+    
+    // Comparar categoria (case insensitive)
+    const categoriaAcai = (acaiConfig.categoria_nome || 'Açaí').toLowerCase().trim();
+    
+    // Verificar se a categoria do produto corresponde
+    const isMatch = categoriaNormalizada === categoriaAcai || 
+                    categoriaNormalizada === 'acai' || 
+                    categoriaNormalizada === 'açaí' ||
+                    categoriaNormalizada === 'açai' ||
+                    categoriaNormalizada === 'acaí';
+    
+    return isMatch;
+  } catch (error) {
+    console.error('❌ Erro ao verificar açaí:', error);
+    return false;
+  }
+}
+
+// Carregar sistema especial de açaí (simplificado - produto é o tamanho)
+async function carregarSistemaAcai() {
+  console.log('🍨 carregarSistemaAcai() chamada');
+  console.log('🍨 Produto selecionado:', produtoSelecionado);
+  
+  // Limpar seleções anteriores
+  acaiAdicionaisGratisSelecionados = [];
+  acaiAdicionaisPagosSelecionados = [];
+  
+  try {
+    // Carregar apenas adicionais e configuração de grátis do produto
+    const [adicionaisRes, configRes] = await Promise.all([
+      fetch('/api/acai/adicionais'),
+      fetch(`/api/acai/produto-config/${produtoSelecionado.id}`)
+    ]);
+    
+    const adicionaisData = await adicionaisRes.json();
+    let produtoConfig = { adicionais_gratis: 0 };
+    
+    try {
+      const configData = await configRes.json();
+      if (configData.success && configData.config) {
+        produtoConfig = configData.config;
+      }
+    } catch (e) {
+      console.log('🍨 Sem configuração específica para este produto');
+    }
+    
+    acaiAdicionais = adicionaisData.success ? adicionaisData.adicionais : [];
+    const maxGratis = produtoConfig.adicionais_gratis || 0;
+    
+    console.log('🍨 Adicionais carregados:', acaiAdicionais.length);
+    console.log('🍨 Adicionais grátis para este produto:', maxGratis);
+    
+    // Se não há adicionais cadastrados, ocultar seção
+    if (acaiAdicionais.length === 0) {
+      console.log('🍨 Nenhum adicional de açaí cadastrado');
+      elements.additionalsSection.style.display = 'none';
+      return;
+    }
+    
+    // Salvar configuração do produto atual
+    acaiTamanhoSelecionado = {
+      id: produtoSelecionado.id,
+      nome: produtoSelecionado.nome,
+      preco: produtoSelecionado.preco,
+      adicionais_gratis: maxGratis
+    };
+    
+    // Mostrar seção de adicionais
+    elements.additionalsSection.style.display = 'block';
+    
+    // Alterar título da seção
+    const sectionTitle = elements.additionalsSection.querySelector('h3');
+    if (sectionTitle) {
+      sectionTitle.innerHTML = '<i class="fas fa-ice-cream" style="color: #9d4edd;"></i> Adicionais do Açaí';
+    }
+    
+    // Limpar lista
+    elements.additionalsList.innerHTML = '';
+    
+    // Info de grátis
+    if (maxGratis > 0) {
+      const infoDiv = document.createElement('div');
+      infoDiv.id = 'acai-info-gratis';
+      infoDiv.style.cssText = 'background: rgba(39, 174, 96, 0.15); border: 1px solid rgba(39, 174, 96, 0.4); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; color: #27ae60; font-size: 0.9rem;';
+      infoDiv.innerHTML = `<i class="fas fa-gift"></i> Você pode escolher <strong id="acai-max-gratis">${maxGratis}</strong> adicionais grátis! (<span id="acai-count-gratis">0</span>/${maxGratis} selecionados)`;
+      elements.additionalsList.appendChild(infoDiv);
+    }
+    
+    // Agrupar adicionais por categoria
+    const porCategoria = {};
+    acaiAdicionais.forEach(a => {
+      const cat = a.categoria || 'Geral';
+      if (!porCategoria[cat]) porCategoria[cat] = [];
+      porCategoria[cat].push(a);
+    });
+    
+    // Renderizar adicionais agrupados por categoria
+    Object.keys(porCategoria).sort().forEach(categoria => {
+      // Título da categoria
+      const catTitle = document.createElement('div');
+      catTitle.style.cssText = 'font-size: 0.85rem; font-weight: 600; color: #9d4edd; margin: 14px 0 8px; padding-left: 4px; display: flex; align-items: center; gap: 6px;';
+      catTitle.innerHTML = `<i class="fas fa-folder"></i> ${categoria}`;
+      elements.additionalsList.appendChild(catTitle);
+      
+      // Adicionais da categoria
+      porCategoria[categoria].forEach(adicional => {
+        const isGratis = !adicional.preco || adicional.preco === 0;
+        
+        const additionalItem = document.createElement('div');
+        additionalItem.className = 'additional-item acai-adicional';
+        additionalItem.dataset.id = adicional.id;
+        additionalItem.dataset.gratis = isGratis ? '1' : '0';
+        additionalItem.innerHTML = `
+          <input type="checkbox" id="acai-add-${adicional.id}" class="additional-checkbox acai-checkbox" data-id="${adicional.id}" data-nome="${adicional.nome}" data-preco="${adicional.preco || 0}" data-gratis="${isGratis ? '1' : '0'}">
+          <div class="additional-info">
+            <div class="additional-name">${adicional.nome}</div>
+            <div class="additional-price" style="color: ${isGratis ? '#27ae60' : '#f39c12'};">
+              ${isGratis ? 'Grátis' : 'R$ ' + (adicional.preco || 0).toFixed(2).replace('.', ',')}
+            </div>
+          </div>
+        `;
+
+        const checkbox = additionalItem.querySelector('.acai-checkbox');
+        checkbox.addEventListener('change', (e) => {
+          handleAcaiAdicionalCheckbox(e.target, adicional, maxGratis);
+        });
+
+        elements.additionalsList.appendChild(additionalItem);
+      });
+    });
+    
+    console.log('✅ Sistema de açaí renderizado com sucesso!');
+  } catch (error) {
+    console.error('❌ Erro ao carregar sistema de açaí:', error);
+    elements.additionalsSection.style.display = 'none';
+  }
+}
+
+// Handler para checkbox de adicional de açaí
+function handleAcaiAdicionalCheckbox(checkbox, adicional, maxGratis) {
+  const isGratis = checkbox.dataset.gratis === '1';
+  const checked = checkbox.checked;
+  
+  if (checked) {
+    if (isGratis && maxGratis > 0) {
+      // Verificar se ainda pode adicionar grátis
+      if (acaiAdicionaisGratisSelecionados.length < maxGratis) {
+        acaiAdicionaisGratisSelecionados.push(adicional);
+        checkbox.closest('.additional-item').style.background = 'rgba(39, 174, 96, 0.15)';
+      } else {
+        // Não pode mais, desmarcar
+        checkbox.checked = false;
+        alert(`Você já selecionou ${maxGratis} adicionais grátis!`);
+        return;
+      }
+    } else {
+      // Adicional pago
+      acaiAdicionaisPagosSelecionados.push(adicional);
+      checkbox.closest('.additional-item').style.background = 'rgba(243, 156, 18, 0.15)';
+    }
+  } else {
+    // Remover
+    if (isGratis) {
+      acaiAdicionaisGratisSelecionados = acaiAdicionaisGratisSelecionados.filter(a => a.id !== adicional.id);
+    }
+    acaiAdicionaisPagosSelecionados = acaiAdicionaisPagosSelecionados.filter(a => a.id !== adicional.id);
+    checkbox.closest('.additional-item').style.background = '';
+  }
+  
+  // Atualizar contador
+  const countEl = document.getElementById('acai-count-gratis');
+  if (countEl) {
+    countEl.textContent = acaiAdicionaisGratisSelecionados.length;
+  }
+  
+  // Atualizar preço
+  atualizarPrecoAcai();
+  
+  console.log('🍨 Grátis:', acaiAdicionaisGratisSelecionados.map(a => a.nome));
+  console.log('🍨 Pagos:', acaiAdicionaisPagosSelecionados.map(a => a.nome));
+}
+
+// Atualizar preço do açaí no modal
+function atualizarPrecoAcai() {
+  if (!produtoSelecionado) return;
+  
+  // Preço base do produto
+  let precoTotal = produtoSelecionado.preco * quantidadeSelecionada;
+  
+  // Adicionar preço dos adicionais pagos
+  const precoAdicionaisPagos = acaiAdicionaisPagosSelecionados.reduce((acc, a) => acc + (a.preco || 0), 0) * quantidadeSelecionada;
+  precoTotal += precoAdicionaisPagos;
+  
+  // Atualizar exibição
+  elements.quantityProductPrice.textContent = `R$ ${precoTotal.toFixed(2).replace('.', ',')}`;
 }
 
 // Retorna a lista de produtos que são considerados adicionais
@@ -1274,6 +1510,7 @@ function adicionarAoCarrinho(produto, quantidade, observacao, adicionais) {
   // Verificar se há adicionais específicos para este produto
   let adicionaisParaEsteItem = [];
   let buffetParaEsteItem = [];
+  let acaiDataParaEsteItem = null;
 
   // Se o produto for da categoria 'Adicionais', não aplicamos os adicionais selecionados.
   const produtoIsAdicional = (adicionaisCategoriaName && produto.categoria && produto.categoria.toLowerCase().trim() === adicionaisCategoriaName.toLowerCase().trim()) || /adicional/i.test(produto.categoria || '');
@@ -1281,6 +1518,9 @@ function adicionarAoCarrinho(produto, quantidade, observacao, adicionais) {
   // Verificar se é marmita
   const categoriaProduto = (produto && produto.categoria) ? produto.categoria.toLowerCase().trim() : '';
   const isMarmita = categoriaProduto === 'marmita' || categoriaProduto === 'marmitas';
+  
+  // Verificar se é açaí (quando temos tamanho selecionado)
+  const isAcai = acaiTamanhoSelecionado !== null;
 
   if (produtoIsAdicional) {
     adicionaisParaEsteItem = [];
@@ -1288,6 +1528,25 @@ function adicionarAoCarrinho(produto, quantidade, observacao, adicionais) {
     // Para marmitas, usar buffet selecionado
     buffetParaEsteItem = buffetSelecionados.length > 0 ? [...buffetSelecionados] : [];
     adicionaisParaEsteItem = [];
+  } else if (isAcai) {
+    // Para açaí, salvar dados especiais
+    acaiDataParaEsteItem = {
+      tamanho: { ...acaiTamanhoSelecionado },
+      adicionaisGratis: [...acaiAdicionaisGratisSelecionados],
+      adicionaisPagos: [...acaiAdicionaisPagosSelecionados]
+    };
+    // Usar o preço do tamanho selecionado
+    produto = { 
+      ...produto, 
+      preco: acaiTamanhoSelecionado.preco,
+      nome: `${produto.nome} (${acaiTamanhoSelecionado.nome})`
+    };
+    // Converter adicionais pagos para formato de adicionais normais (para cálculo de preço)
+    adicionaisParaEsteItem = acaiAdicionaisPagosSelecionados.map(a => ({
+      id: a.id,
+      nome: a.nome,
+      preco: a.preco || 0
+    }));
   } else {
     adicionaisParaEsteItem = adicionaisSelecionados.length > 0 ? adicionaisSelecionados : (adicionais || []);
   }
@@ -1297,12 +1556,16 @@ function adicionarAoCarrinho(produto, quantidade, observacao, adicionais) {
     quantidade: quantidade,
     observacao: observacao,
     adicionais: adicionaisParaEsteItem,
-    buffet: buffetParaEsteItem
+    buffet: buffetParaEsteItem,
+    acaiData: acaiDataParaEsteItem
   });
   
-  // Limpar os adicionais e buffet selecionados
+  // Limpar os adicionais, buffet e açaí selecionados
   adicionaisSelecionados = [];
   buffetSelecionados = [];
+  acaiTamanhoSelecionado = null;
+  acaiAdicionaisGratisSelecionados = [];
+  acaiAdicionaisPagosSelecionados = [];
   
   atualizarCarrinho();
   mostrarNotificacao(`${quantidade}x ${produto.nome} adicionado(s) ao carrinho!`);
@@ -1334,10 +1597,21 @@ function atualizarCarrinho() {
       itemHTML += `<div class="cart-item-additionals" style="color: #3498db;"><i class="fas fa-utensils"></i> Buffet: ${buffetText}</div>`;
     }
     
+    // Adicionar dados do açaí se existir
+    if (item.acaiData) {
+      // Mostrar adicionais grátis
+      if (item.acaiData.adicionaisGratis && item.acaiData.adicionaisGratis.length > 0) {
+        const gratisText = item.acaiData.adicionaisGratis.map(a => a.nome).join(', ');
+        itemHTML += `<div class="cart-item-additionals" style="color: #27ae60;"><i class="fas fa-gift"></i> Grátis: ${gratisText}</div>`;
+      }
+      // Adicionais pagos já estão em item.adicionais
+    }
+    
     // Adicionar adicionais se existirem
     if (item.adicionais && item.adicionais.length > 0) {
       const adicionaisText = item.adicionais.map(a => a.nome).join(', ');
-      itemHTML += `<div class="cart-item-additionals">Adicionais: ${adicionaisText}</div>`;
+      const labelText = item.acaiData ? 'Extras' : 'Adicionais';
+      itemHTML += `<div class="cart-item-additionals">${labelText}: ${adicionaisText}</div>`;
     }
     
     // Adicionar observação se existir
@@ -2202,27 +2476,120 @@ async function converterEnderecoECalcularEntrega() {
 // Tratar erros de localização
 function tratarErroLocalizacao(error) {
   let errorMessage = '';
+  let showRetryButton = false;
+  let showInstructions = false;
   
   switch (error.code) {
     case error.PERMISSION_DENIED:
-      errorMessage = 'Permissão para acessar localização negada. Por favor, habilite o acesso à localização nas configurações do seu navegador.';
+      errorMessage = 'Permissão para acessar localização negada.';
+      showRetryButton = true;
+      showInstructions = true;
       break;
     case error.POSITION_UNAVAILABLE:
       errorMessage = 'Informação de localização indisponível. Por favor, tente novamente.';
+      showRetryButton = true;
       break;
     case error.TIMEOUT:
       errorMessage = 'Tempo limite para obter localização esgotado. Por favor, tente novamente.';
+      showRetryButton = true;
       break;
     default:
       errorMessage = 'Erro desconhecido ao obter localização.';
+      showRetryButton = true;
       break;
   }
   
   if (elements.deliveryError) {
-    elements.deliveryError.textContent = errorMessage;
+    let htmlContent = `<div style="text-align: center;">
+      <p style="margin-bottom: 12px;">${errorMessage}</p>`;
+    
+    if (showInstructions) {
+      htmlContent += `
+      <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; font-size: 0.9rem;">
+        <p style="margin-bottom: 8px; font-weight: 600;"><i class="fas fa-info-circle"></i> Como habilitar a localização:</p>
+        <p style="margin-bottom: 4px;">📱 <strong>Celular:</strong> Toque no ícone de cadeado/configurações ao lado do endereço do site e permita "Localização".</p>
+        <p>💻 <strong>Computador:</strong> Clique no cadeado na barra de endereço → Permissões do site → Localização → Permitir.</p>
+      </div>`;
+    }
+    
+    if (showRetryButton) {
+      htmlContent += `
+      <button onclick="solicitarPermissaoLocalizacao()" style="
+        background: var(--primary-color, #e74c3c);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      ">
+        <i class="fas fa-location-arrow"></i> Tentar Novamente
+      </button>`;
+    }
+    
+    htmlContent += '</div>';
+    
+    elements.deliveryError.innerHTML = htmlContent;
     elements.deliveryError.style.display = 'block';
-    elements.deliveryInfo.style.display = 'none';
+    if (elements.deliveryInfo) elements.deliveryInfo.style.display = 'none';
   }
+}
+
+// Função para solicitar permissão de localização novamente
+async function solicitarPermissaoLocalizacao() {
+  // Verificar se a API de Permissions está disponível
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      
+      if (result.state === 'denied') {
+        // Permissão foi bloqueada permanentemente - mostrar instruções
+        if (elements.deliveryError) {
+          elements.deliveryError.innerHTML = `
+            <div style="text-align: center;">
+              <p style="margin-bottom: 12px; color: #f39c12;"><i class="fas fa-exclamation-triangle"></i> Localização bloqueada</p>
+              <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: left; font-size: 0.9rem;">
+                <p style="margin-bottom: 10px;">A permissão de localização está bloqueada. Para habilitar:</p>
+                <ol style="margin-left: 20px; line-height: 1.6;">
+                  <li>Clique no <strong>ícone de cadeado</strong> 🔒 na barra de endereço do navegador</li>
+                  <li>Encontre <strong>"Localização"</strong> ou <strong>"Permissões"</strong></li>
+                  <li>Altere para <strong>"Permitir"</strong></li>
+                  <li>Recarregue a página</li>
+                </ol>
+              </div>
+              <button onclick="window.location.reload()" style="
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 1rem;
+                font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 15px;
+              ">
+                <i class="fas fa-sync-alt"></i> Recarregar Página
+              </button>
+            </div>`;
+          elements.deliveryError.style.display = 'block';
+        }
+        return;
+      }
+    } catch (e) {
+      console.log('Permissions API não disponível, tentando diretamente');
+    }
+  }
+  
+  // Tentar obter localização novamente
+  usarLocalizacao();
 }
 
 // Função para usar a localização do usuário
