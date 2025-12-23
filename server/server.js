@@ -44,6 +44,9 @@ const PORT = process.env.PORT || 4004;
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Confiar no primeiro proxy (Nginx) para headers X-Forwarded-For
+app.set('trust proxy', 1);
+
 // Middleware estático
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json({ limit: '10mb' }));
