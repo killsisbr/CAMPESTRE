@@ -943,7 +943,7 @@ function imprimirPedido(pedido) {
         <head>
           <title>Pedido #${pedido.id}</title>
           <style>
-            body { font-family: 'Courier New', monospace; font-size: 16px; line-height: 1.5; margin: 0; padding: 10px; width: 80mm; }
+            body { font-family: 'Courier New', monospace; font-size: 20px; line-height: 1.6; margin: 0; padding: 10px; width: 80mm; }
             pre { margin: 0; white-space: pre-wrap; }
             @media print { body { width: 80mm; margin: 0; padding: 5px; } }
           </style>
@@ -967,7 +967,7 @@ function imprimirPedido(pedido) {
 }
 
 function formatarPedidoParaImpressao(pedido) {
-    const largura = 48;
+    const largura = 32;
     const linha = '='.repeat(largura);
     const linhaPontilhada = '-'.repeat(largura);
 
