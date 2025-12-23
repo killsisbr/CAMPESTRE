@@ -183,8 +183,121 @@ class WhatsAppService {
   getStatus() {
     return {
       connected: this.isConnected,
-      qrCodeAvailable: !!this.lastQRCode
+      qrCodeAvailable: !!this.lastQRCode,
+      clientReady: this.client !== null
     };
+  }
+
+  // Desconectar o WhatsApp (logout)
+  async disconnect() {
+    if (!this.client) {
+      throw new Error('Cliente WhatsApp não inicializado');
+    }
+
+    try {
+      console.log('📴 Desconectando WhatsApp...');
+      await this.client.logout();
+      this.isConnected = false;
+      this.lastQRCode = null;
+      console.log('✅ WhatsApp desconectado com sucesso');
+      return { success: true, message: 'WhatsApp desconectado com sucesso' };
+    } catch (error) {
+      console.error('❌ Erro ao desconectar WhatsApp:', error.message);
+      throw error;
+    }
+  }
+
+  // Destruir cliente completamente
+  async destroy() {
+    if (!this.client) {
+      throw new Error('Cliente WhatsApp não inicializado');
+    }
+
+    try {
+      console.log('🗑 Destruindo cliente WhatsApp...');
+      await this.client.destroy();
+      this.client = null;
+      this.isConnected = false;
+      this.lastQRCode = null;
+      console.log('✅ Cliente WhatsApp destruído');
+      return { success: true, message: 'Cliente WhatsApp destruído' };
+    } catch (error) {
+      console.error('❌ Erro ao destruir cliente WhatsApp:', error.message);
+      throw error;
+    }
+  }
+
+  // Reiniciar WhatsApp (destroy e reinicializar)
+  async restart() {
+    try {
+      console.log('🔄 Reiniciando WhatsApp...');
+
+      // Se tiver cliente, destruir primeiro
+      if (this.client) {
+        try {
+          await this.client.destroy();
+        } catch (e) {
+          console.warn('Aviso ao destruir cliente anterior:', e.message);
+        }
+      }
+
+      this.client = null;
+      this.isConnected = false;
+      this.lastQRCode = null;
+
+      // Reinicializar
+      this.initialize();
+
+      console.log('✅ WhatsApp reiniciado - aguardando QR Code ou autenticação');
+      return { success: true, message: 'WhatsApp reiniciado com sucesso' };
+    } catch (error) {
+      console.error('❌ Erro ao reiniciar WhatsApp:', error.message);
+      throw error;
+    }
+  }
+
+  // Forçar novo QR Code (desconecta e limpa sessão)
+  async forceNewQR() {
+    try {
+      console.log('🔄 Forçando novo QR Code...');
+
+      // Desconectar se conectado
+      if (this.client) {
+        try {
+          if (this.isConnected) {
+            await this.client.logout();
+          }
+          await this.client.destroy();
+        } catch (e) {
+          console.warn('Aviso ao desconectar para novo QR:', e.message);
+        }
+      }
+
+      // Limpar pasta de sessão
+      const sessionPath = path.join(SESSIONS_DIR, 'session-brutus-web');
+      if (fs.existsSync(sessionPath)) {
+        console.log('🗑 Limpando sessão anterior...');
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      }
+
+      this.client = null;
+      this.isConnected = false;
+      this.lastQRCode = null;
+
+      // Reinicializar para gerar novo QR
+      this.initialize();
+
+      console.log('✅ Novo QR Code será gerado');
+      return { success: true, message: 'Sessão limpa - novo QR Code será gerado' };
+    } catch (error) {
+      console.error('❌ Erro ao forçar novo QR:', error.message);
+      throw error;
+    }
+  }
+
+  // Verificar se está inicializando
+  isInitializing() {
+    return this.client !== null && !this.isConnected && !this.lastQRCode;
   }
 
   // Listar todos os grupos disponíveis (útil para descobrir o ID correto)

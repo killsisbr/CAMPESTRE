@@ -12,11 +12,110 @@ let customSettings = {};
 let ultimosPedidosIds = new Set();
 
 // ============================================================
+// MODAL DE INPUT CUSTOMIZADO (substitui prompt)
+// ============================================================
+
+function showInputModal(options) {
+    return new Promise((resolve) => {
+        const {
+            title = 'Input',
+            message = '',
+            placeholder = '',
+            defaultValue = '',
+            confirmText = 'OK',
+            cancelText = 'Cancelar'
+        } = options;
+
+        // Remover modal existente se houver
+        const existingModal = document.getElementById('custom-input-modal');
+        if (existingModal) existingModal.remove();
+
+        // Criar modal
+        const modal = document.createElement('div');
+        modal.id = 'custom-input-modal';
+        modal.className = 'modal-overlay show';
+        modal.style.zIndex = '99999';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 500px; animation: modalSlideIn 0.3s ease-out;">
+                <div class="modal-header" style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.1)); border-bottom: 2px solid rgba(231, 76, 60, 0.3);">
+                    <h2 style="font-size: 1.3rem; display: flex; align-items: center; gap: 10px;">${title}</h2>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    ${message}
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text); font-size: 0.95rem;">Motivo do bloqueio:</label>
+                        <input type="text" id="custom-input-field" 
+                               placeholder="${placeholder}" 
+                               value="${defaultValue}"
+                               style="width: 100%; padding: 12px 16px; background: var(--dark); border: 2px solid var(--border); border-radius: 10px; color: var(--text); font-size: 1rem; transition: all 0.2s;"
+                               onfocus="this.style.borderColor='#e74c3c'; this.style.boxShadow='0 0 0 3px rgba(231, 76, 60, 0.1)'"
+                               onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="custom-input-cancel" 
+                                style="padding: 12px 24px; background: rgba(150, 150, 150, 0.2); border: 1px solid rgba(150, 150, 150, 0.3); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.95rem;"
+                                onmouseover="this.style.background='rgba(150, 150, 150, 0.3)'"
+                                onmouseout="this.style.background='rgba(150, 150, 150, 0.2)'">
+                            ${cancelText}
+                        </button>
+                        <button id="custom-input-confirm" 
+                                style="padding: 12px 24px; background: linear-gradient(135deg, #e74c3c, #c0392b); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3); font-size: 0.95rem;"
+                                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(231, 76, 60, 0.4)'"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(231, 76, 60, 0.3)'">
+                            <i class="fas fa-ban"></i> ${confirmText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Focar no input
+        const inputField = document.getElementById('custom-input-field');
+        setTimeout(() => {
+            inputField.focus();
+            inputField.select();
+        }, 100);
+
+        // Event listeners
+        const confirmBtn = document.getElementById('custom-input-confirm');
+        const cancelBtn = document.getElementById('custom-input-cancel');
+
+        const handleConfirm = () => {
+            const value = inputField.value.trim();
+            modal.remove();
+            resolve(value || null);
+        };
+
+        const handleCancel = () => {
+            modal.remove();
+            resolve(null);
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+
+        // Enter para confirmar, Esc para cancelar
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleConfirm();
+            if (e.key === 'Escape') handleCancel();
+        });
+
+        // Clicar fora fecha
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) handleCancel();
+        });
+    });
+}
+
+// ============================================================
 // INICIALIZAÇÃO
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
     await carregarConfiguracoes();
+    await carregarBlacklist(); // Carregar blacklist antes dos pedidos
     await carregarPedidos();
     iniciarAtualizacaoAutomatica();
     setupEventListeners();
@@ -31,9 +130,11 @@ function setupEventListeners() {
     document.getElementById('toggle-robot-btn').addEventListener('click', toggleRobot);
     document.getElementById('auto-print-btn').addEventListener('click', toggleAutoPrint);
 
-    // Fechar modais clicando fora
+    // Fechar modais clicando fora (EXCETO login-modal)
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
+            // Nao fechar o modal de login clicando fora
+            if (modal.id === 'login-modal') return;
             if (e.target === modal) closeModal(modal.id);
         });
     });
@@ -194,12 +295,19 @@ function renderizarPedidos() {
 
 function criarCardPedido(pedido) {
     const card = document.createElement('div');
-    card.className = 'order-card';
 
-    // Verificar blacklist
-    const isBlacklisted = pedido.is_blacklisted === 1 || pedido.is_blacklisted === true;
+    // Verificar blacklist DINAMICAMENTE pelo telefone (não pelo campo do banco)
+    const isBlacklisted = isNumeroBlacklist(pedido.cliente_telefone);
+
+    card.className = isBlacklisted ? 'order-card blacklisted' : 'order-card';
+    card.dataset.id = pedido.id;
+    card.dataset.status = pedido.status;
+
+    // Se for golpista, adicionar estilos inline para destacar em vermelho
     if (isBlacklisted) {
-        card.classList.add('blacklisted');
+        card.style.border = '2px solid #e74c3c';
+        card.style.boxShadow = '0 4px 12px rgba(231, 76, 60, 0.4), inset 0 0 20px rgba(231, 76, 60, 0.1)';
+        card.style.background = 'linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(192, 57, 43, 0.1))';
     }
 
     // Formatar hora
@@ -590,43 +698,93 @@ async function atualizarStatus(pedidoId, novoStatus) {
     }
 }
 
-async function markAsScammer() {
-    if (!pedidoSelecionado) return;
 
-    const telefone = pedidoSelecionado.cliente_telefone;
-    const nome = pedidoSelecionado.cliente_nome;
+async function markAsScammer() {
+    console.log('🚫 markAsScammer() chamada');
+    console.log('pedidoSelecionado:', window.pedidoSelecionado || pedidoSelecionado);
+
+    // Tentar pegar de window se não estiver disponível
+    const pedido = window.pedidoSelecionado || pedidoSelecionado;
+
+    if (!pedido) {
+        console.error('❌ pedidoSelecionado não definido');
+        showToast('Erro: Pedido não selecionado.', 'error');
+        return;
+    }
+
+    const telefone = pedido.cliente_telefone;
+    const nome = pedido.cliente_nome;
     const temTelefone = telefone && telefone !== 'Não informado' && telefone.trim() !== '';
 
-    const identificador = temTelefone ? telefone : (nome || 'Cliente');
-    const motivo = prompt(`Marcar como GOLPISTA: ${identificador}\n\nDigite o motivo:`, 'Golpe/Calote');
+    console.log('📞 Telefone:', telefone, '| Tem telefone:', temTelefone);
 
-    if (motivo === null) return;
+    if (!temTelefone) {
+        showToast('Pedido sem telefone não pode ser bloqueado.', 'error');
+        return;
+    }
+
+    const identificador = nome || 'Cliente';
+
+    // Usar modal customizado em vez de prompt nativo
+    const motivo = await showInputModal({
+        title: '🚫 Adicionar à Blacklist',
+        message: `<div style="margin-bottom: 15px;">
+            <div style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 8px;">Telefone:</div>
+            <div style="font-size: 1.1rem; font-weight: 600; color: #e74c3c; margin-bottom: 15px;">${telefone}</div>
+            <div style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 8px;">Cliente:</div>
+            <div style="font-size: 1rem; font-weight: 500; margin-bottom: 15px;">${identificador}</div>
+        </div>`,
+        placeholder: 'Digite o motivo (ex: Golpista, Trote, Calote...)',
+        defaultValue: 'Golpista/Calote',
+        confirmText: 'Bloquear',
+        cancelText: 'Cancelar'
+    });
+
+    if (motivo === null) {
+        console.log('⏸️ Usuário cancelou');
+        return;
+    }
 
     try {
-        // Adicionar à blacklist se tiver telefone
-        if (temTelefone) {
-            await fetch('/api/blacklist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ telefone, motivo: motivo || 'Golpe' })
-            });
-        }
+        console.log('📡 Enviando para /api/blacklist...');
 
-        // Marcar pedido como blacklisted
-        await fetch(`/api/pedidos/${pedidoSelecionado.id}/blacklist`, {
-            method: 'PUT',
+        // Adicionar telefone à blacklist
+        const response = await fetch('/api/blacklist', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_blacklisted: 1 })
+            body: JSON.stringify({ telefone, motivo: motivo || 'Golpista' })
         });
 
-        alert(`Pedido #${pedidoSelecionado.id} marcado como GOLPE!`);
-        closeModal('order-modal');
-        await carregarPedidos();
+        const data = await response.json();
+        console.log('📥 Resposta da API:', data);
+
+        if (data.success) {
+            showToast(`Número ${telefone} adicionado à blacklist!`, 'success');
+
+            // Recarregar blacklist para atualizar verificações
+            if (typeof carregarBlacklist === 'function') {
+                await carregarBlacklist();
+            }
+
+            // Fechar modal
+            closeModal('order-modal');
+
+            // Recarregar pedidos para atualizar indicadores visuais
+            if (typeof carregarPedidos === 'function') {
+                await carregarPedidos();
+            }
+        } else {
+            showToast(data.error || 'Erro ao adicionar à blacklist.', 'error');
+        }
     } catch (error) {
-        console.error('Erro ao marcar golpista:', error);
-        alert('Erro ao marcar como golpista.');
+        console.error('❌ Erro ao marcar golpista:', error);
+        showToast('Erro ao adicionar à blacklist.', 'error');
     }
 }
+
+// Garantir que a função está disponível globalmente
+window.markAsScammer = markAsScammer;
+
 
 // ============================================================
 // IMPRESSÃO
@@ -1251,16 +1409,28 @@ function mudarSecaoAdmin(secao) {
 
 let buffetItens = [];
 
+// Abrir modal de buffet diretamente do header
+function abrirBuffetModal() {
+    openModal('buffet-modal');
+    carregarBuffetAdmin();
+}
+
 async function carregarBuffetAdmin() {
     const container = document.getElementById('buffet-lista');
-    container.innerHTML = '<p style="color: var(--text-muted);">Carregando...</p>';
+    const countBadge = document.getElementById('buffet-count');
+
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i><p>Carregando...</p></div>';
 
     try {
-        const response = await fetch('/api/buffet');
+        const response = await fetch('/api/buffet/todos');
         const data = await response.json();
 
-        // Verificar se a resposta é um array
-        if (Array.isArray(data)) {
+        // Verificar se a resposta tem sucesso e itens
+        if (data.success && Array.isArray(data.itens)) {
+            buffetItens = data.itens;
+        } else if (Array.isArray(data)) {
             buffetItens = data;
         } else if (data.error) {
             container.innerHTML = `<p style="color: var(--danger);">Erro: ${data.error}</p>`;
@@ -1269,27 +1439,34 @@ async function carregarBuffetAdmin() {
             buffetItens = [];
         }
 
+        // Atualizar contador
+        const ativos = buffetItens.filter(i => i.ativo === 1 || i.ativo === true).length;
+        if (countBadge) countBadge.textContent = ativos;
+
         if (buffetItens.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted);">Nenhum item no buffet. Adicione itens acima.</p>';
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-drumstick-bite" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 15px;"></i><p>Nenhum item no buffet. Adicione itens acima.</p></div>';
             return;
         }
 
         container.innerHTML = buffetItens.map(item => `
-            <div class="buffet-item-row" style="display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: var(--dark); border-radius: 8px;">
+            <div class="buffet-item-row" style="display: flex; align-items: center; gap: 15px; padding: 12px 15px; background: ${item.ativo ? 'var(--card)' : 'rgba(45, 45, 45, 0.5)'}; border-radius: 8px; border: 1px solid var(--border); transition: all 0.3s;">
+                <div style="width: 40px; height: 40px; background: ${item.ativo ? '#e67e22' : 'var(--text-muted)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-drumstick-bite" style="color: white;"></i>
+                </div>
                 <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-weight: 600;">${item.nome}</span>
+                    <span style="font-weight: 600; ${!item.ativo ? 'opacity: 0.5;' : ''}">${item.nome}</span>
                     <span style="padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; ${item.ativo ? 'background: rgba(39, 174, 96, 0.2); color: #27ae60;' : 'background: rgba(176, 176, 176, 0.2); color: #888;'}">
                         ${item.ativo ? 'ATIVO' : 'INATIVO'}
                     </span>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button onclick="toggleItemBuffet(${item.id})" 
-                            style="width: 36px; height: 36px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; ${item.ativo ? 'background: rgba(241, 196, 15, 0.2); color: #f39c12;' : 'background: rgba(39, 174, 96, 0.2); color: #27ae60;'}"
+                            style="width: 36px; height: 36px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; ${item.ativo ? 'background: rgba(241, 196, 15, 0.2); color: #f39c12;' : 'background: rgba(39, 174, 96, 0.2); color: #27ae60;'}"
                             title="${item.ativo ? 'Desativar' : 'Ativar'}">
-                        <i class="fas ${item.ativo ? 'fa-toggle-off' : 'fa-toggle-on'}"></i>
+                        <i class="fas ${item.ativo ? 'fa-eye-slash' : 'fa-eye'}"></i>
                     </button>
                     <button onclick="removerItemBuffet(${item.id})" 
-                            style="width: 36px; height: 36px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(231, 76, 60, 0.2); color: #e74c3c;"
+                            style="width: 36px; height: 36px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: rgba(231, 76, 60, 0.2); color: #e74c3c;"
                             title="Remover">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -1333,19 +1510,14 @@ async function adicionarItemBuffet() {
 }
 
 async function toggleItemBuffet(id) {
-    const item = buffetItens.find(i => i.id === id);
-    if (!item) return;
-
     try {
-        const response = await fetch(`/api/buffet/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ativo: !item.ativo })
+        const response = await fetch(`/api/buffet/${id}/toggle`, {
+            method: 'PATCH'
         });
 
         const data = await response.json();
         if (data.success) {
-            showToast(`Item ${!item.ativo ? 'ativado' : 'desativado'}!`, 'success');
+            showToast(`Item ${data.item.ativo ? 'ativado' : 'desativado'}!`, 'success');
             carregarBuffetAdmin();
         } else {
             showToast('Erro ao atualizar item.', 'error');
@@ -1372,6 +1544,604 @@ async function removerItemBuffet(id) {
     } catch (error) {
         console.error('Erro ao remover item:', error);
         showToast('Erro ao remover item.', 'error');
+    }
+}
+
+// ============================================================
+// ADICIONAIS DO AÇAÍ
+// ============================================================
+
+let acaiAdicionais = [];
+
+// Abrir modal de adicionais de açaí
+function abrirAcaiModal() {
+    openModal('acai-modal');
+    carregarAdicionaisAcai();
+}
+
+async function carregarAdicionaisAcai() {
+    const container = document.getElementById('acai-lista');
+    const countBadge = document.getElementById('acai-count');
+
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i><p>Carregando...</p></div>';
+
+    try {
+        const response = await fetch('/api/acai/adicionais');
+        const data = await response.json();
+
+        acaiAdicionais = Array.isArray(data) ? data : (data.adicionais || []);
+
+        // Atualizar contador (apenas ativos)
+        const ativos = acaiAdicionais.filter(i => i.ativo === 1 || i.ativo === true).length;
+        if (countBadge) countBadge.textContent = ativos;
+
+        if (acaiAdicionais.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-ice-cream" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 15px;"></i><p>Nenhum adicional cadastrado. Adicione itens acima.</p></div>';
+            return;
+        }
+
+        // Renderizar lista simples sem agrupamento
+        let html = '';
+        acaiAdicionais.forEach(a => {
+            const isGratis = !a.preco || parseFloat(a.preco) === 0;
+            html += `
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: ${a.ativo ? 'var(--card)' : 'rgba(45, 45, 45, 0.5)'}; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 8px;">
+                    <div style="width: 36px; height: 36px; background: ${a.ativo ? (isGratis ? 'linear-gradient(135deg, #2ecc71, #27ae60)' : 'linear-gradient(135deg, #7b2cbf, #5a189a)') : 'var(--text-muted)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-${isGratis ? 'gift' : 'dollar-sign'}" style="color: white; font-size: 0.9rem;"></i>
+                    </div>
+                    <div style="flex: 1; ${!a.ativo ? 'opacity: 0.5;' : ''}">
+                        <div style="font-weight: 600;">${a.nome}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 12px;">
+                            <span><i class="fas fa-tag"></i> R$ ${parseFloat(a.preco || 0).toFixed(2)}</span>
+                            <span><i class="fas fa-sort"></i> Ordem: ${a.ordem || 0}</span>
+                        </div>
+                    </div>
+                    <span style="padding: 4px 10px; border-radius: 16px; font-size: 0.75rem; font-weight: 600; ${a.ativo ? 'background: rgba(39, 174, 96, 0.2); color: #27ae60;' : 'background: rgba(176, 176, 176, 0.2); color: #888;'}">
+                        ${a.ativo ? 'ATIVO' : 'INATIVO'}
+                    </span>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="toggleAdicionalAcai(${a.id})" 
+                                style="width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; ${a.ativo ? 'background: rgba(241, 196, 15, 0.2); color: #f39c12;' : 'background: rgba(39, 174, 96, 0.2); color: #27ae60;'}"
+                                title="${a.ativo ? 'Desativar' : 'Ativar'}">
+                            <i class="fas ${a.ativo ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                        </button>
+                        <button onclick="removerAdicionalAcai(${a.id})" 
+                                style="width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(231, 76, 60, 0.2); color: #e74c3c;"
+                                title="Remover">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Erro ao carregar adicionais:', error);
+        container.innerHTML = '<p style="color: var(--danger);">Erro ao carregar adicionais do açaí.</p>';
+    }
+}
+
+async function adicionarAdicionalAcai() {
+    const nome = document.getElementById('acai-novo-nome').value.trim();
+    const preco = parseFloat(document.getElementById('acai-novo-preco').value) || 0;
+    const ordem = parseInt(document.getElementById('acai-nova-ordem').value) || 0;
+
+    if (!nome) {
+        showToast('Digite o nome do adicional.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/acai/adicionais', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, preco, ordem })
+        });
+
+        const data = await response.json();
+        if (data.success || data.id) {
+            showToast('Adicional cadastrado!', 'success');
+            document.getElementById('acai-novo-nome').value = '';
+            document.getElementById('acai-novo-preco').value = '';
+            document.getElementById('acai-nova-ordem').value = '';
+            carregarAdicionaisAcai();
+        } else {
+            showToast(data.error || 'Erro ao adicionar.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao adicionar:', error);
+        showToast('Erro ao adicionar adicional.', 'error');
+    }
+}
+
+async function toggleAdicionalAcai(id) {
+    try {
+        const response = await fetch(`/api/acai/adicionais/${id}/toggle`, {
+            method: 'PATCH'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast(`Adicional ${data.adicional.ativo ? 'ativado' : 'desativado'}!`, 'success');
+            carregarAdicionaisAcai();
+        } else {
+            showToast('Erro ao atualizar adicional.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao toggle adicional:', error);
+        showToast('Erro ao atualizar adicional.', 'error');
+    }
+}
+
+async function removerAdicionalAcai(id) {
+    if (!confirm('Tem certeza que deseja remover este adicional?')) return;
+
+    try {
+        const response = await fetch(`/api/acai/adicionais/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Adicional removido!', 'success');
+            carregarAdicionaisAcai();
+        } else {
+            showToast('Erro ao remover adicional.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao remover adicional:', error);
+        showToast('Erro ao remover adicional.', 'error');
+    }
+}
+
+// ============================================================
+// BLACKLIST (NÚMEROS BLOQUEADOS)
+// ============================================================
+
+let blacklistNumeros = [];
+
+// Carregar blacklist do servidor
+async function carregarBlacklist() {
+    try {
+        const response = await fetch('/api/blacklist');
+        const data = await response.json();
+        blacklistNumeros = data.success ? data.lista : [];
+        return blacklistNumeros;
+    } catch (error) {
+        console.error('Erro ao carregar blacklist:', error);
+        return [];
+    }
+}
+
+// Verificar se número está na blacklist
+function isNumeroBlacklist(telefone) {
+    if (!telefone) return false;
+
+    // Limpar e normalizar número (remover tudo exceto dígitos)
+    let telLimpo = telefone.replace(/\D/g, '');
+
+    // Remover código do país 55 se houver
+    if (telLimpo.startsWith('55') && telLimpo.length > 11) {
+        telLimpo = telLimpo.substring(2);
+    }
+
+    return blacklistNumeros.some(b => {
+        let blackTel = b.telefone.replace(/\D/g, '');
+
+        // Remover código do país 55 se houver
+        if (blackTel.startsWith('55') && blackTel.length > 11) {
+            blackTel = blackTel.substring(2);
+        }
+
+        // Comparar números normalizados (sem 55)
+        return telLimpo === blackTel ||
+            telLimpo.includes(blackTel) ||
+            blackTel.includes(telLimpo);
+    });
+}
+
+// Abrir modal de gerenciamento de blacklist
+async function abrirBlacklistModal() {
+    await carregarBlacklist();
+
+    const existingModal = document.getElementById('blacklist-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'blacklist-modal';
+    modal.className = 'modal-overlay show';
+    modal.style.zIndex = '10000';
+    modal.innerHTML = `
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(192, 57, 43, 0.2));">
+                <h2><i class="fas fa-ban" style="color: #e74c3c;"></i> Gerenciar Blacklist</h2>
+                <button class="close-btn" onclick="fecharBlacklistModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">
+                        <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                        Números bloqueados serão automaticamente marcados como "GOLPISTA" em todos os pedidos.
+                    </p>
+                </div>
+                
+                <!-- Adicionar novo número -->
+                <div style="background: var(--card); border-radius: 10px; padding: 15px; margin-bottom: 20px; border: 1px solid var(--border);">
+                    <h3 style="font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-plus-circle" style="color: #e74c3c;"></i> Adicionar Número
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 10px; align-items: end;">
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Telefone</label>
+                            <input type="text" id="blacklist-novo-tel" placeholder="Ex: 11999999999" 
+                                style="width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Motivo</label>
+                            <input type="text" id="blacklist-novo-motivo" placeholder="Ex: Golpista, Trote..." 
+                                style="width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem;">
+                        </div>
+                        <button onclick="adicionarNumeroBlacklist()" style="padding: 10px 16px; background: #e74c3c; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                            <i class="fas fa-ban"></i> Bloquear
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Lista de números bloqueados -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <i class="fas fa-list"></i>
+                    <span>Números Bloqueados</span>
+                    <span id="blacklist-count" style="background: #e74c3c; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">${blacklistNumeros.length}</span>
+                </div>
+                
+                <div id="blacklist-lista" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+                    ${blacklistNumeros.length === 0 ?
+            '<p style="color: var(--text-muted); text-align: center; padding: 30px;">Nenhum número bloqueado.</p>' :
+            blacklistNumeros.map(b => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--card); border: 1px solid rgba(231, 76, 60, 0.3); border-left: 3px solid #e74c3c; border-radius: 8px;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; font-size: 1rem;">${b.telefone}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                                        <i class="fas fa-exclamation-circle"></i> ${b.motivo || 'Sem motivo'}
+                                        <span style="margin-left: 12px; opacity: 0.7;">
+                                            <i class="fas fa-calendar"></i> ${new Date(b.data_inclusao).toLocaleDateString('pt-BR')}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button onclick="removerNumeroBlacklist(${b.id})" 
+                                        style="padding: 8px 14px; background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#e74c3c'; this.style.color='white';"
+                                        onmouseout="this.style.background='rgba(231, 76, 60, 0.2)'; this.style.color='#e74c3c';">
+                                    <i class="fas fa-trash"></i> Remover
+                                </button>
+                            </div>
+                        `).join('')
+        }
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function fecharBlacklistModal() {
+    const modal = document.getElementById('blacklist-modal');
+    if (modal) modal.remove();
+}
+
+async function adicionarNumeroBlacklist() {
+    const telefone = document.getElementById('blacklist-novo-tel').value.trim();
+    const motivo = document.getElementById('blacklist-novo-motivo').value.trim();
+
+    if (!telefone) {
+        showToast('Digite o número de telefone.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/blacklist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefone, motivo: motivo || 'Golpista' })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast('Número adicionado à blacklist!', 'success');
+            await abrirBlacklistModal(); // Recarregar modal
+            renderizarPedidos(); // Atualizar cards dos pedidos
+        } else {
+            showToast(data.error || 'Erro ao adicionar.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao adicionar:', error);
+        showToast('Erro ao adicionar à blacklist.', 'error');
+    }
+}
+
+async function removerNumeroBlacklist(id) {
+    if (!confirm('Tem certeza que deseja remover este número da blacklist?')) return;
+
+    try {
+        const response = await fetch(`/api/blacklist/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Número removido da blacklist!', 'success');
+            await abrirBlacklistModal(); // Recarregar modal
+            renderizarPedidos(); // Atualizar cards dos pedidos
+        } else {
+            showToast('Erro ao remover.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao remover:', error);
+        showToast('Erro ao remover da blacklist.', 'error');
+    }
+}
+
+// ============================================================
+// PAINEL ADMIN (Perfil da Loja)
+// ============================================================
+
+function abrirPainelAdmin() {
+    const existingModal = document.getElementById('admin-panel-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'admin-panel-modal';
+    modal.className = 'modal-overlay show';
+    modal.style.zIndex = '9999';
+    modal.innerHTML = `
+        <div class="modal" style="max-width: 900px; height: 80vh; display: flex; flex-direction: row; padding: 0; overflow: hidden;">
+            <!-- Sidebar -->
+            <div class="admin-sidebar" style="width: 200px; min-width: 200px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.1);">
+                <div style="padding: 0 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;">
+                    <h3 style="font-size: 1rem; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-store"></i> Perfil da Loja
+                    </h3>
+                </div>
+                <div class="admin-menu" style="flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 10px;">
+                    <button class="admin-menu-item active" data-section="dashboard" onclick="selecionarSecaoAdmin('dashboard', this)" style="width: 100%; padding: 12px 15px; background: rgba(155, 89, 182, 0.2); border: none; border-radius: 8px; color: white; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </button>
+                    <button class="admin-menu-item" data-section="cardapio" onclick="selecionarSecaoAdmin('cardapio', this)" style="width: 100%; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fas fa-utensils"></i> Cardapio
+                    </button>
+                    <button class="admin-menu-item" data-section="configuracoes" onclick="selecionarSecaoAdmin('configuracoes', this)" style="width: 100%; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fas fa-cog"></i> Configuracoes
+                    </button>
+                    <button class="admin-menu-item" data-section="clientes" onclick="selecionarSecaoAdmin('clientes', this)" style="width: 100%; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fas fa-users"></i> Clientes
+                    </button>
+                    <button class="admin-menu-item" data-section="customizacao" onclick="window.location.href='custom.html'" style="width: 100%; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fas fa-palette"></i> Customizacao
+                    </button>
+                    <button class="admin-menu-item" data-section="whatsapp" onclick="window.location.href='whatsapp.html'" style="width: 100%; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </button>
+                </div>
+                <div style="padding: 15px 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button onclick="fecharPainelAdmin()" style="width: 100%; padding: 10px; background: rgba(231, 76, 60, 0.2); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 8px; color: #e74c3c; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fas fa-times"></i> Fechar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Conteudo -->
+            <div class="admin-content" id="admin-content" style="flex: 1; padding: 25px; overflow-y: auto; background: var(--bg);">
+                <div id="admin-section-dashboard">
+                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-tachometer-alt" style="color: var(--primary);"></i> Dashboard
+                    </h2>
+                    <p style="color: var(--text-muted);">Carregando estatisticas...</p>
+                </div>
+                <div id="admin-section-cardapio" style="display: none;">
+                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-utensils" style="color: var(--primary);"></i> Gerenciar Cardapio
+                    </h2>
+                    <div id="admin-cardapio-content"></div>
+                </div>
+                <div id="admin-section-configuracoes" style="display: none;">
+                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-cog" style="color: var(--primary);"></i> Configuracoes
+                    </h2>
+                    <p style="color: var(--text-muted);">Use o botao "Configuracoes" no header para acessar.</p>
+                </div>
+                <div id="admin-section-clientes" style="display: none;">
+                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-users" style="color: var(--primary);"></i> Clientes
+                    </h2>
+                    <div id="admin-clientes-content"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Carregar conteudo das secoes apos modal estar no DOM
+    setTimeout(() => {
+        carregarDashboardAdmin();
+        carregarCardapioAdmin();
+        carregarClientesAdmin();
+    }, 100);
+}
+
+function fecharPainelAdmin() {
+    const modal = document.getElementById('admin-panel-modal');
+    if (modal) modal.remove();
+}
+
+function selecionarSecaoAdmin(secao, btn) {
+    // Remover active de todos os botoes
+    document.querySelectorAll('.admin-menu-item').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-muted)';
+        b.classList.remove('active');
+    });
+
+    // Adicionar active ao botao clicado
+    btn.style.background = 'rgba(155, 89, 182, 0.2)';
+    btn.style.color = 'white';
+    btn.classList.add('active');
+
+    // Esconder todas as secoes
+    document.querySelectorAll('[id^="admin-section-"]').forEach(s => {
+        s.style.display = 'none';
+    });
+
+    // Mostrar secao selecionada
+    const secaoElement = document.getElementById(`admin-section-${secao}`);
+    if (secaoElement) {
+        secaoElement.style.display = 'block';
+    }
+}
+
+async function carregarDashboardAdmin() {
+    const container = document.getElementById('admin-section-dashboard');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/pedidos');
+        const pedidos = await response.json();
+        const listaPedidos = Array.isArray(pedidos) ? pedidos : (pedidos.pedidos || []);
+
+        const hoje = new Date();
+        const pedidosHoje = listaPedidos.filter(p => new Date(p.data).toDateString() === hoje.toDateString());
+        const totalHoje = pedidosHoje.reduce((acc, p) => acc + parseFloat(p.total || 0), 0);
+
+        container.innerHTML = `
+            <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-tachometer-alt" style="color: var(--primary);"></i> Dashboard
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div style="background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(39, 174, 96, 0.1)); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 12px; padding: 20px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Vendas Hoje</div>
+                    <div style="font-size: 1.8rem; font-weight: 700; color: #2ecc71;">R$ ${totalHoje.toFixed(2).replace('.', ',')}</div>
+                </div>
+                <div style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(41, 128, 185, 0.1)); border: 1px solid rgba(52, 152, 219, 0.3); border-radius: 12px; padding: 20px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Pedidos Hoje</div>
+                    <div style="font-size: 1.8rem; font-weight: 700; color: #3498db;">${pedidosHoje.length}</div>
+                </div>
+                <div style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(142, 68, 173, 0.1)); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 12px; padding: 20px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Total Pedidos</div>
+                    <div style="font-size: 1.8rem; font-weight: 700; color: #9b59b6;">${listaPedidos.length}</div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar dashboard.</p>';
+    }
+}
+
+async function carregarClientesAdmin() {
+    const container = document.getElementById('admin-clientes-content');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/pedidos');
+        const pedidos = await response.json();
+        const listaPedidos = Array.isArray(pedidos) ? pedidos : (pedidos.pedidos || []);
+
+        // Agrupar por cliente
+        const clientes = {};
+        listaPedidos.forEach(p => {
+            const nome = p.cliente_nome || 'Cliente Desconhecido';
+            if (!clientes[nome]) {
+                clientes[nome] = { nome, telefone: p.cliente_telefone, pedidos: 0, total: 0 };
+            }
+            clientes[nome].pedidos++;
+            clientes[nome].total += parseFloat(p.total || 0);
+        });
+
+        const listaClientes = Object.values(clientes).sort((a, b) => b.total - a.total).slice(0, 20);
+
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                ${listaClientes.map(c => `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: var(--card); border-radius: 8px; border: 1px solid var(--border);">
+                        <div>
+                            <div style="font-weight: 600;">${c.nome}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${c.telefone || 'Sem telefone'}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: #2ecc71;">R$ ${c.total.toFixed(2).replace('.', ',')}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${c.pedidos} pedido(s)</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (error) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar clientes.</p>';
+    }
+}
+
+async function carregarCardapioAdmin() {
+    const container = document.getElementById('admin-cardapio-content');
+    if (!container) return;
+
+    container.innerHTML = '<p style="color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Carregando cardápio...</p>';
+
+    try {
+        const response = await fetch('/api/produtos');
+        const produtos = await response.json();
+
+        if (!produtos || produtos.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted);">Nenhum produto cadastrado.</p>';
+            return;
+        }
+
+        // Agrupar por categoria
+        const categorias = {};
+        produtos.forEach(p => {
+            const cat = p.categoria || 'Sem categoria';
+            if (!categorias[cat]) categorias[cat] = [];
+            categorias[cat].push(p);
+        });
+
+        container.innerHTML = `
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button onclick="abrirModalAdicionarProduto()" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-plus"></i> Novo Produto
+                </button>
+                <button onclick="abrirModalCategorias()" style="padding: 10px 20px; background: rgba(155, 89, 182, 0.2); color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-tags"></i> Categorias
+                </button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                ${Object.entries(categorias).map(([cat, prods]) => `
+                    <div>
+                        <h3 style="font-size: 1rem; color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-folder"></i> ${cat} (${prods.length})
+                        </h3>
+                        <div style="display: grid; gap: 10px;">
+                            ${prods.map(p => `
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: var(--card); border-radius: 8px; border: 1px solid var(--border);">
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600;">${p.nome}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-muted);">${p.descricao || 'Sem descrição'}</div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-weight: 700; color: #2ecc71;">R$ ${parseFloat(p.preco || 0).toFixed(2).replace('.', ',')}</span>
+                                        <button onclick="editarProdutoAdmin(${p.id})" style="padding: 8px 12px; background: rgba(52, 152, 219, 0.2); color: #3498db; border: none; border-radius: 6px; cursor: pointer;">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="excluirProdutoAdmin(${p.id})" style="padding: 8px 12px; background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: none; border-radius: 6px; cursor: pointer;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Erro ao carregar cardápio admin:', error);
+        container.innerHTML = '<p style="color: var(--text-muted);">Erro ao carregar cardápio.</p>';
     }
 }
 
@@ -1466,44 +2236,13 @@ async function carregarDashboard() {
 }
 
 // ============================================================
-// CARDÁPIO
+// CARDÁPIO - Funções auxiliares
 // ============================================================
 
-async function carregarCardapioAdmin() {
-    try {
-        const response = await fetch('/api/produtos');
-        adminProdutos = await response.json();
+async function abrirModalAdicionarProduto() {
+    // Buscar categorias existentes
+    const categorias = await getCategorias();
 
-        const container = document.getElementById('admin-produtos-lista');
-        if (adminProdutos.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted);">Nenhum produto cadastrado</p>';
-            return;
-        }
-
-        container.innerHTML = adminProdutos.map(prod => `
-            <div class="produto-card-admin">
-                <img src="${prod.imagem || '/placeholder.png'}" alt="${prod.nome}" onerror="this.src='/placeholder.png'">
-                <h4>${prod.nome}</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="price">R$ ${parseFloat(prod.preco || 0).toFixed(2).replace('.', ',')}</span>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">${prod.categoria || 'Sem categoria'}</span>
-                </div>
-                <div class="actions">
-                    <button onclick="editarProdutoAdmin(${prod.id})" style="background: var(--info); color: white;">
-                        <i class="fas fa-edit"></i> Editar
-                    </button>
-                    <button onclick="excluirProdutoAdmin(${prod.id})" style="background: var(--danger); color: white;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    } catch (error) {
-        console.error('Erro ao carregar cardápio:', error);
-    }
-}
-
-function abrirModalAdicionarProduto() {
     // Criar modal inline para adicionar produto
     const existingModal = document.getElementById('produto-edit-modal');
     if (existingModal) existingModal.remove();
@@ -1529,7 +2268,14 @@ function abrirModalAdicionarProduto() {
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 600;">Categoria</label>
-                    <input type="text" id="prod-categoria" style="width: 100%; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="prod-categoria" style="flex: 1; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white;">
+                            <option value="">Selecione ou crie nova...</option>
+                            ${categorias.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                            <option value="__NOVA__">+ Nova Categoria</option>
+                        </select>
+                    </div>
+                    <input type="text" id="prod-categoria-nova" placeholder="Digite o nome da nova categoria..." style="width: 100%; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white; margin-top: 8px; display: none;">
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 600;">Descricao</label>
@@ -1542,16 +2288,100 @@ function abrirModalAdicionarProduto() {
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Adicionar listener para mostrar input de nova categoria
+    document.getElementById('prod-categoria').addEventListener('change', function () {
+        const inputNova = document.getElementById('prod-categoria-nova');
+        if (this.value === '__NOVA__') {
+            inputNova.style.display = 'block';
+            inputNova.focus();
+        } else {
+            inputNova.style.display = 'none';
+        }
+    });
 }
 
-function abrirModalCategorias() {
-    showToast('Gerencie categorias pela lista de produtos - cada produto tem sua categoria.', 'info');
+// Função auxiliar para obter categorias únicas
+async function getCategorias() {
+    try {
+        const response = await fetch('/api/produtos');
+        const produtos = await response.json();
+
+        // Extrair categorias únicas
+        const categoriasSet = new Set();
+        produtos.forEach(p => {
+            if (p.categoria && p.categoria.trim()) {
+                categoriasSet.add(p.categoria.trim());
+            }
+        });
+
+        // Converter para array e ordenar
+        return Array.from(categoriasSet).sort();
+    } catch (error) {
+        console.error('Erro ao buscar categorias:', error);
+        return [];
+    }
+}
+
+async function abrirModalCategorias() {
+    const categorias = await getCategorias();
+
+    const existingModal = document.getElementById('categorias-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'categorias-modal';
+    modal.className = 'modal-overlay show';
+    modal.style.zIndex = '10000';
+    modal.innerHTML = `
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-tags"></i> Gerenciar Categorias</h2>
+                <button class="close-btn" onclick="fecharModalCategorias()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div style="background: rgba(52, 152, 219, 0.1); border: 1px solid rgba(52, 152, 219, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">
+                        <i class="fas fa-info-circle" style="color: #3498db;"></i>
+                        Categorias são extraídas automaticamente dos produtos. Para adicionar nova categoria, basta criar um produto nela.
+                    </p>
+                </div>
+                
+                <h3 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-muted);">
+                    <i class="fas fa-list"></i> Categorias Existentes (${categorias.length})
+                </h3>
+                
+                <div id="lista-categorias" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                    ${categorias.length === 0 ?
+            '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Nenhuma categoria encontrada. Crie produtos para gerar categorias.</p>' :
+            categorias.map(cat => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px;">
+                                <span style="font-weight: 500;">${cat}</span>
+                                <span style="font-size: 0.85rem; color: var(--text-muted); padding: 3px 10px; background: rgba(155, 89, 182, 0.2); border-radius: 12px;">
+                                    ${adminProdutos.filter(p => p.categoria === cat).length} produto(s)
+                                </span>
+                            </div>
+                        `).join('')
+        }
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function fecharModalCategorias() {
+    const modal = document.getElementById('categorias-modal');
+    if (modal) modal.remove();
 }
 
 async function editarProdutoAdmin(id) {
     // Buscar dados do produto
     const prod = adminProdutos.find(p => p.id === id);
     if (!prod) return;
+
+    // Buscar categorias existentes
+    const categorias = await getCategorias();
 
     const existingModal = document.getElementById('produto-edit-modal');
     if (existingModal) existingModal.remove();
@@ -1578,7 +2408,15 @@ async function editarProdutoAdmin(id) {
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 600;">Categoria</label>
-                    <input type="text" id="prod-categoria" value="${prod.categoria || ''}" style="width: 100%; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="prod-categoria" style="flex: 1; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white;">
+                            <option value="">Selecione ou crie nova...</option>
+                            ${categorias.map(cat => `<option value="${cat}" ${cat === prod.categoria ? 'selected' : ''}>${cat}</option>`).join('')}
+                            ${!categorias.includes(prod.categoria) && prod.categoria ? `<option value="${prod.categoria}" selected>${prod.categoria}</option>` : ''}
+                            <option value="__NOVA__">+ Nova Categoria</option>
+                        </select>
+                    </div>
+                    <input type="text" id="prod-categoria-nova" placeholder="Digite o nome da nova categoria..." style="width: 100%; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white; margin-top: 8px; display: none;">
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 600;">Descricao</label>
@@ -1591,6 +2429,17 @@ async function editarProdutoAdmin(id) {
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Adicionar listener para mostrar input de nova categoria
+    document.getElementById('prod-categoria').addEventListener('change', function () {
+        const inputNova = document.getElementById('prod-categoria-nova');
+        if (this.value === '__NOVA__') {
+            inputNova.style.display = 'block';
+            inputNova.focus();
+        } else {
+            inputNova.style.display = 'none';
+        }
+    });
 }
 
 function fecharModalProduto() {
@@ -1601,7 +2450,17 @@ function fecharModalProduto() {
 async function salvarNovoProduto() {
     const nome = document.getElementById('prod-nome').value;
     const preco = parseFloat(document.getElementById('prod-preco').value) || 0;
-    const categoria = document.getElementById('prod-categoria').value;
+    let categoria = document.getElementById('prod-categoria').value;
+
+    // Se selecionou nova categoria, pegar do input
+    if (categoria === '__NOVA__') {
+        categoria = document.getElementById('prod-categoria-nova').value.trim();
+        if (!categoria) {
+            showToast('Digite o nome da nova categoria.', 'error');
+            return;
+        }
+    }
+
     const descricao = document.getElementById('prod-descricao').value;
 
     if (!nome) {
@@ -1633,7 +2492,17 @@ async function salvarEdicaoProduto() {
     const id = document.getElementById('prod-id').value;
     const nome = document.getElementById('prod-nome').value;
     const preco = parseFloat(document.getElementById('prod-preco').value) || 0;
-    const categoria = document.getElementById('prod-categoria').value;
+    let categoria = document.getElementById('prod-categoria').value;
+
+    // Se selecionou nova categoria, pegar do input
+    if (categoria === '__NOVA__') {
+        categoria = document.getElementById('prod-categoria-nova').value.trim();
+        if (!categoria) {
+            showToast('Digite o nome da nova categoria.', 'error');
+            return;
+        }
+    }
+
     const descricao = document.getElementById('prod-descricao').value;
 
     if (!nome) {
@@ -1658,12 +2527,6 @@ async function salvarEdicaoProduto() {
     } catch (error) {
         console.error('Erro ao atualizar produto:', error);
         showToast('Erro ao atualizar produto.', 'error');
-    }
-}
-
-function editarProdutoAdmin(id) {
-    if (confirm('Deseja abrir a página de edição em nova aba?')) {
-        window.open(`/admin.html?edit=${id}`, '_blank');
     }
 }
 
@@ -1731,62 +2594,6 @@ async function salvarConfiguracoesAdmin() {
     } catch (error) {
         console.error('Erro ao salvar configurações:', error);
         showToast('Erro ao salvar configurações.', 'error');
-    }
-}
-
-// ============================================================
-// CLIENTES
-// ============================================================
-
-async function carregarClientesAdmin() {
-    try {
-        const response = await fetch('/api/pedidos');
-        const data = await response.json();
-        // A API pode retornar array direto ou objeto com propriedade pedidos
-        const todosPedidos = Array.isArray(data) ? data : (data.pedidos || []);
-
-        // Agrupar por cliente
-        const clientesMap = {};
-        todosPedidos.forEach(p => {
-            const key = p.cliente_telefone || p.cliente_nome || 'Desconhecido';
-            if (!clientesMap[key]) {
-                clientesMap[key] = {
-                    nome: p.cliente_nome || 'Cliente',
-                    telefone: p.cliente_telefone || '',
-                    pedidos: 0,
-                    valor: 0
-                };
-            }
-            clientesMap[key].pedidos++;
-            clientesMap[key].valor += parseFloat(p.total || 0);
-        });
-
-        const clientes = Object.values(clientesMap);
-        const clientesRecorrentes = clientes.filter(c => c.pedidos > 1).length;
-
-        document.getElementById('clientes-total').textContent = clientes.length;
-        document.getElementById('clientes-recorrentes').textContent = clientesRecorrentes;
-
-        // Top clientes por valor
-        const topClientes = clientes.sort((a, b) => b.valor - a.valor).slice(0, 10);
-
-        const container = document.getElementById('top-clientes-lista');
-        if (topClientes.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted);">Nenhum cliente encontrado</p>';
-        } else {
-            container.innerHTML = topClientes.map((cliente, idx) => `
-                <div class="cliente-item">
-                    <div class="ranking-position ${idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : 'normal'}">${idx + 1}</div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600;">${cliente.nome}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">${cliente.pedidos} pedido(s)</div>
-                    </div>
-                    <div style="color: var(--primary); font-weight: 700;">R$ ${cliente.valor.toFixed(2).replace('.', ',')}</div>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Erro ao carregar clientes:', error);
     }
 }
 

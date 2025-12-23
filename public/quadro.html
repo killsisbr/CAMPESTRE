@@ -39,69 +39,87 @@
             overflow-x: hidden;
         }
 
-        /* Header */
+        /* Header Premium */
         .header {
-            background: linear-gradient(135deg, var(--card), #1a1a1a);
-            border-bottom: 1px solid var(--border);
-            padding: 15px 25px;
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(26, 26, 26, 0.98));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 16px;
         }
 
         .logo-area {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(39, 174, 96, 0.15), rgba(30, 132, 73, 0.1));
+            border-radius: 12px;
+            border: 1px solid rgba(39, 174, 96, 0.2);
         }
 
         .logo-area img {
-            height: 40px;
+            height: 38px;
             width: auto;
             border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         .logo-area h1 {
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            color: var(--text);
+            background: linear-gradient(135deg, #fff, #ccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 0.5px;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .status-indicator {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-radius: 25px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 600;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
 
         .status-indicator.online {
-            background: rgba(46, 204, 113, 0.15);
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(46, 204, 113, 0.1));
             color: var(--success);
-            border: 1px solid rgba(46, 204, 113, 0.3);
+            border: 1px solid rgba(46, 204, 113, 0.4);
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);
         }
 
         .status-indicator.offline {
-            background: rgba(231, 76, 60, 0.15);
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(231, 76, 60, 0.1));
             color: var(--danger);
-            border: 1px solid rgba(231, 76, 60, 0.3);
+            border: 1px solid rgba(231, 76, 60, 0.4);
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.2);
         }
 
         .status-dot {
@@ -109,6 +127,7 @@
             height: 8px;
             border-radius: 50%;
             animation: pulse 2s infinite;
+            box-shadow: 0 0 8px currentColor;
         }
 
         .status-indicator.online .status-dot {
@@ -124,40 +143,108 @@
             0%,
             100% {
                 opacity: 1;
+                transform: scale(1);
             }
 
             50% {
-                opacity: 0.5;
+                opacity: 0.6;
+                transform: scale(0.9);
             }
         }
 
         .header-btn {
-            background: var(--card);
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(40, 40, 40, 0.9), rgba(30, 30, 30, 0.95));
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: var(--text);
-            padding: 10px 18px;
-            border-radius: var(--radius);
+            padding: 9px 14px;
+            border-radius: 10px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
+            gap: 7px;
+            font-size: 0.82rem;
             font-weight: 500;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .header-btn:hover::before {
+            left: 100%;
         }
 
         .header-btn:hover {
-            background: var(--card-hover);
-            border-color: var(--primary);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 20px rgba(39, 174, 96, 0.15);
+        }
+
+        .header-btn:active {
+            transform: translateY(0);
+        }
+
+        .header-btn i {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+        }
+
+        .header-btn:hover i {
+            transform: scale(1.1);
         }
 
         .header-btn.primary {
-            background: var(--primary);
-            border-color: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: 1px solid rgba(39, 174, 96, 0.5);
+            box-shadow: 0 2px 10px rgba(39, 174, 96, 0.3);
         }
 
         .header-btn.primary:hover {
-            background: var(--primary-dark);
+            box-shadow: 0 4px 20px rgba(39, 174, 96, 0.5), 0 0 30px rgba(39, 174, 96, 0.3);
+        }
+
+        /* Botoes coloridos com glow */
+        .header-btn[style*="9b59b6"] {
+            box-shadow: 0 2px 12px rgba(155, 89, 182, 0.3);
+        }
+
+        .header-btn[style*="9b59b6"]:hover {
+            box-shadow: 0 4px 20px rgba(155, 89, 182, 0.5);
+        }
+
+        .header-btn[style*="e67e22"] {
+            box-shadow: 0 2px 12px rgba(230, 126, 34, 0.3);
+        }
+
+        .header-btn[style*="e67e22"]:hover {
+            box-shadow: 0 4px 20px rgba(230, 126, 34, 0.5);
+        }
+
+        .header-btn[style*="7b2cbf"] {
+            box-shadow: 0 2px 12px rgba(123, 44, 191, 0.3);
+        }
+
+        .header-btn[style*="7b2cbf"]:hover {
+            box-shadow: 0 4px 20px rgba(123, 44, 191, 0.5);
+        }
+
+        .header-btn[style*="e74c3c"] {
+            box-shadow: 0 2px 12px rgba(231, 76, 60, 0.3);
+        }
+
+        .header-btn[style*="e74c3c"]:hover {
+            box-shadow: 0 4px 20px rgba(231, 76, 60, 0.5);
         }
 
         /* Stats Bar */
@@ -880,8 +967,20 @@
                 style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
                 <i class="fas fa-store"></i> Perfil da Loja
             </button>
+            <button id="buffet-btn" class="header-btn" onclick="abrirBuffetModal()"
+                style="background: linear-gradient(135deg, #e67e22, #d35400);">
+                <i class="fas fa-drumstick-bite"></i> Buffet
+            </button>
+            <button id="acai-btn" class="header-btn" onclick="abrirAcaiModal()"
+                style="background: linear-gradient(135deg, #7b2cbf, #5a189a);">
+                <i class="fas fa-ice-cream"></i> Adicionais Acai
+            </button>
+            <button id="blacklist-btn" class="header-btn" onclick="abrirBlacklistModal()"
+                style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                <i class="fas fa-ban"></i> Blacklist
+            </button>
             <button id="settings-btn" class="header-btn">
-                <i class="fas fa-cog"></i> Configurações
+                <i class="fas fa-cog"></i> Configuracoes
             </button>
             <button id="refresh-btn" class="header-btn primary">
                 <i class="fas fa-sync-alt"></i> Atualizar
@@ -1451,56 +1550,594 @@
         </div>
     </div>
 
-    <!-- Modal de Login Obrigatório -->
-    <div id="login-modal" class="modal-overlay" style="z-index: 9999;">
-        <div class="modal" style="max-width: 400px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark));">
-                <h2><i class="fas fa-lock"></i> Acesso Restrito</h2>
-            </div>
-            <div class="modal-body" style="padding: 30px;">
-                <div style="text-align: center; margin-bottom: 25px;">
-                    <div
-                        style="width: 70px; height: 70px; margin: 0 auto 15px; background: linear-gradient(135deg, var(--primary), var(--success)); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-user-shield" style="font-size: 2rem; color: white;"></i>
-                    </div>
-                    <p style="color: var(--text-muted);">Digite suas credenciais para acessar o painel</p>
+    <!-- Modal de Login Premium -->
+    <div id="login-modal" class="modal-overlay"
+        style="z-index: 9999; background: linear-gradient(135deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.98));">
+        <!-- Particulas decorativas -->
+        <div class="login-particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+
+        <div class="login-card">
+            <!-- Header com gradiente e glow -->
+            <div class="login-header">
+                <div class="login-logo-glow"></div>
+                <div class="login-icon-container">
+                    <i class="fas fa-store"></i>
                 </div>
+                <h1 class="login-title">Painel Admin</h1>
+                <p class="login-subtitle">Lanchonete Campestre</p>
+            </div>
 
+            <!-- Body -->
+            <div class="login-body">
                 <form id="login-form" onsubmit="return fazerLogin(event)">
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-muted);">
-                            <i class="fas fa-user"></i> Usuário
+                    <!-- Campo Usuario -->
+                    <div class="login-input-group">
+                        <label class="login-label">
+                            <i class="fas fa-user"></i> Usuario
                         </label>
-                        <input type="text" id="login-username" required autocomplete="username"
-                            style="width: 100%; padding: 14px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem;"
-                            placeholder="Digite seu usuário">
-                    </div>
-
-                    <div style="margin-bottom: 25px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-muted);">
-                            <i class="fas fa-key"></i> Senha
-                        </label>
-                        <div style="position: relative;">
-                            <input type="password" id="login-password" required autocomplete="current-password"
-                                style="width: 100%; padding: 14px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; padding-right: 50px;"
-                                placeholder="Digite sua senha">
-                            <button type="button" onclick="togglePasswordVisibility()"
-                                style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
-                                <i class="fas fa-eye" id="toggle-password-icon"></i>
-                            </button>
+                        <div class="login-input-wrapper">
+                            <input type="text" id="login-username" required autocomplete="username"
+                                placeholder="Digite seu usuario" class="login-input">
+                            <div class="login-input-focus"></div>
                         </div>
                     </div>
 
-                    <div id="login-error"
-                        style="display: none; color: var(--danger); text-align: center; margin-bottom: 15px; padding: 10px; background: rgba(231,76,60,0.1); border-radius: 8px;">
-                        <i class="fas fa-exclamation-circle"></i> <span id="login-error-msg"></span>
+                    <!-- Campo Senha -->
+                    <div class="login-input-group">
+                        <label class="login-label">
+                            <i class="fas fa-key"></i> Senha
+                        </label>
+                        <div class="login-input-wrapper">
+                            <input type="password" id="login-password" required autocomplete="current-password"
+                                placeholder="Digite sua senha" class="login-input" style="padding-right: 50px;">
+                            <button type="button" onclick="togglePasswordVisibility()" class="login-toggle-password">
+                                <i class="fas fa-eye" id="toggle-password-icon"></i>
+                            </button>
+                            <div class="login-input-focus"></div>
+                        </div>
                     </div>
 
-                    <button type="submit" id="login-btn"
-                        style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--primary), var(--success)); color: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <i class="fas fa-sign-in-alt"></i> Entrar
+                    <!-- Erro -->
+                    <div id="login-error" class="login-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="login-error-msg"></span>
+                    </div>
+
+                    <!-- Botao -->
+                    <button type="submit" id="login-btn" class="login-submit-btn">
+                        <span class="btn-text">
+                            <i class="fas fa-sign-in-alt"></i> Entrar
+                        </span>
+                        <span class="btn-loading" style="display: none;">
+                            <i class="fas fa-circle-notch fa-spin"></i> Autenticando...
+                        </span>
                     </button>
                 </form>
+
+                <!-- Footer -->
+                <div class="login-footer">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Acesso seguro e criptografado</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Login Premium Styles */
+        .login-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--success));
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float-particle 15s infinite ease-in-out;
+        }
+
+        .particle:nth-child(1) {
+            left: 10%;
+            top: 20%;
+            animation-delay: 0s;
+            width: 8px;
+            height: 8px;
+        }
+
+        .particle:nth-child(2) {
+            left: 80%;
+            top: 30%;
+            animation-delay: 2s;
+            width: 12px;
+            height: 12px;
+        }
+
+        .particle:nth-child(3) {
+            left: 20%;
+            top: 70%;
+            animation-delay: 4s;
+            width: 6px;
+            height: 6px;
+        }
+
+        .particle:nth-child(4) {
+            left: 70%;
+            top: 80%;
+            animation-delay: 6s;
+            width: 10px;
+            height: 10px;
+        }
+
+        .particle:nth-child(5) {
+            left: 50%;
+            top: 10%;
+            animation-delay: 8s;
+            width: 14px;
+            height: 14px;
+        }
+
+        @keyframes float-particle {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+                opacity: 0.3;
+            }
+
+            25% {
+                transform: translate(20px, -30px) rotate(90deg);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: translate(-20px, 20px) rotate(180deg);
+                opacity: 0.2;
+            }
+
+            75% {
+                transform: translate(30px, 10px) rotate(270deg);
+                opacity: 0.4;
+            }
+        }
+
+        .login-card {
+            background: linear-gradient(145deg, rgba(30, 30, 30, 0.9), rgba(20, 20, 20, 0.95));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow:
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                0 0 100px rgba(39, 174, 96, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            width: 90%;
+            max-width: 420px;
+            overflow: hidden;
+            animation: login-card-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        /* Garantir que o modal de login nao feche ao clicar fora */
+        #login-modal.modal-overlay {
+            cursor: not-allowed;
+        }
+
+        #login-modal .login-card,
+        #login-modal .login-card * {
+            cursor: default;
+        }
+
+        #login-modal .login-input,
+        #login-modal .login-submit-btn,
+        #login-modal .login-toggle-password {
+            cursor: pointer;
+        }
+
+        #login-modal .login-input {
+            cursor: text;
+        }
+
+        @keyframes login-card-enter {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            padding: 35px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-logo-glow {
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .login-icon-container {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: icon-pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes icon-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            }
+        }
+
+        .login-icon-container i {
+            font-size: 2.2rem;
+            color: white;
+        }
+
+        .login-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 5px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .login-subtitle {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 0;
+        }
+
+        .login-body {
+            padding: 35px 30px;
+        }
+
+        .login-input-group {
+            margin-bottom: 22px;
+        }
+
+        .login-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .login-label i {
+            color: var(--primary);
+            margin-right: 6px;
+        }
+
+        .login-input-wrapper {
+            position: relative;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 16px 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .login-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(39, 174, 96, 0.05);
+            box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.15);
+        }
+
+        .login-input-focus {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        .login-input:focus~.login-input-focus {
+            width: 100%;
+        }
+
+        .login-toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .login-toggle-password:hover {
+            color: var(--primary);
+        }
+
+        .login-error {
+            display: none;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(192, 57, 43, 0.1));
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            align-items: center;
+            gap: 10px;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-5px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(5px);
+            }
+        }
+
+        .login-submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--primary), #1e8449);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .login-submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .login-submit-btn:hover::before {
+            left: 100%;
+        }
+
+        .login-submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+        }
+
+        .login-submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-submit-btn .btn-text,
+        .login-submit-btn .btn-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-footer i {
+            color: var(--primary);
+        }
+    </style>
+
+    <!-- Modal Buffet do Dia -->
+    <div id="buffet-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, rgba(230, 126, 34, 0.3), rgba(211, 84, 0, 0.2));">
+                <h2><i class="fas fa-drumstick-bite" style="color: #e67e22;"></i> Buffet do Dia</h2>
+                <button class="modal-close" onclick="closeModal('buffet-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Info -->
+                <div
+                    style="background: rgba(230, 126, 34, 0.1); border: 1px solid rgba(230, 126, 34, 0.3); border-radius: 10px; padding: 12px; margin-bottom: 20px;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        <i class="fas fa-info-circle" style="color: #e67e22;"></i>
+                        Gerencie os itens do buffet. Itens ativos aparecem na selecao de marmitas.
+                    </p>
+                </div>
+
+                <!-- Adicionar Item -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="buffet-novo-item" placeholder="Nome do item (Ex: Arroz, Feijao...)"
+                        style="flex: 1; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem;">
+                    <button onclick="adicionarItemBuffet()"
+                        style="padding: 12px 20px; background: #e67e22; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-plus"></i> Adicionar
+                    </button>
+                </div>
+
+                <!-- Lista de Itens -->
+                <div
+                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <i class="fas fa-list"></i>
+                    <span>Itens do Buffet</span>
+                    <span id="buffet-count"
+                        style="background: #e67e22; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">0</span>
+                </div>
+
+                <div id="buffet-lista"
+                    style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i>
+                        <p>Carregando...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-action-btn back" onclick="closeModal('buffet-modal')">
+                    <i class="fas fa-times"></i> Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionais do Acai -->
+    <div id="acai-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, rgba(123, 44, 191, 0.3), rgba(90, 24, 154, 0.2));">
+                <h2><i class="fas fa-ice-cream" style="color: #9d4edd;"></i> Adicionais do Acai</h2>
+                <button class="modal-close" onclick="closeModal('acai-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Info -->
+                <div
+                    style="background: rgba(123, 44, 191, 0.1); border: 1px solid rgba(123, 44, 191, 0.3); border-radius: 10px; padding: 12px; margin-bottom: 20px;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        <i class="fas fa-info-circle" style="color: #9d4edd;"></i>
+                        Configure os adicionais disponiveis para acai. Defina preco e ordem de exibicao.
+                    </p>
+                </div>
+
+                <!-- Adicionar Adicional -->
+                <div
+                    style="background: var(--card); border-radius: 10px; padding: 15px; margin-bottom: 20px; border: 1px solid var(--border);">
+                    <h3 style="font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-plus-circle" style="color: #9d4edd;"></i> Adicionar Novo Item
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 100px auto; gap: 10px; align-items: end;">
+                        <div>
+                            <label
+                                style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Nome</label>
+                            <input type="text" id="acai-novo-nome" placeholder="Ex: Granola, Morango..."
+                                style="width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem;">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Preco
+                                (R$)</label>
+                            <input type="number" id="acai-novo-preco" placeholder="0.00" step="0.01" min="0"
+                                style="width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem;">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Ordem</label>
+                            <input type="number" id="acai-nova-ordem" placeholder="0" min="0"
+                                style="width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem;">
+                        </div>
+                        <button onclick="adicionarAdicionalAcai()"
+                            style="padding: 10px 16px; background: #7b2cbf; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                            <i class="fas fa-plus"></i> Adicionar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lista de Adicionais -->
+                <div
+                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <i class="fas fa-list"></i>
+                    <span>Adicionais Cadastrados</span>
+                    <span id="acai-count"
+                        style="background: #7b2cbf; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">0</span>
+                </div>
+
+                <div id="acai-lista"
+                    style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i>
+                        <p>Carregando...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-action-btn back" onclick="closeModal('acai-modal')">
+                    <i class="fas fa-times"></i> Fechar
+                </button>
             </div>
         </div>
     </div>
@@ -1558,11 +2195,14 @@
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
             const btn = document.getElementById('login-btn');
+            const btnText = btn.querySelector('.btn-text');
+            const btnLoading = btn.querySelector('.btn-loading');
             const errorDiv = document.getElementById('login-error');
             const errorMsg = document.getElementById('login-error-msg');
 
-            // Mostrar loading
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+            // Mostrar loading com animacao
+            if (btnText) btnText.style.display = 'none';
+            if (btnLoading) btnLoading.style.display = 'flex';
             btn.disabled = true;
             errorDiv.style.display = 'none';
 
@@ -1577,18 +2217,30 @@
 
                 if (data.success && data.token) {
                     localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-                    esconderLoginModal();
-                    location.reload(); // Recarregar para carregar os dados
+
+                    // Animacao de sucesso antes de recarregar
+                    btn.style.background = 'linear-gradient(135deg, #2ecc71, #27ae60)';
+                    if (btnLoading) btnLoading.innerHTML = '<i class="fas fa-check"></i> Sucesso!';
+
+                    setTimeout(() => {
+                        esconderLoginModal();
+                        location.reload();
+                    }, 500);
                 } else {
-                    errorMsg.textContent = data.error || 'Credenciais inválidas';
-                    errorDiv.style.display = 'block';
+                    errorMsg.textContent = data.error || 'Credenciais invalidas';
+                    errorDiv.style.display = 'flex';
+                    // Resetar botao
+                    if (btnText) btnText.style.display = 'flex';
+                    if (btnLoading) btnLoading.style.display = 'none';
+                    btn.disabled = false;
                 }
             } catch (error) {
                 console.error('Erro no login:', error);
-                errorMsg.textContent = 'Erro de conexão. Tente novamente.';
-                errorDiv.style.display = 'block';
-            } finally {
-                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+                errorMsg.textContent = 'Erro de conexao. Tente novamente.';
+                errorDiv.style.display = 'flex';
+                // Resetar botao
+                if (btnText) btnText.style.display = 'flex';
+                if (btnLoading) btnLoading.style.display = 'none';
                 btn.disabled = false;
             }
 
@@ -1616,6 +2268,31 @@
             location.reload();
         }
 
+        // Prevenir fechamento do modal de login ao clicar fora
+        document.addEventListener('DOMContentLoaded', function () {
+            const loginModal = document.getElementById('login-modal');
+            if (loginModal) {
+                // Impedir que cliques no overlay fechem o modal
+                loginModal.addEventListener('click', function (e) {
+                    // Se clicou no overlay (fora do card), nao fazer nada
+                    if (e.target === loginModal || e.target.classList.contains('login-particles') || e.target.classList.contains('particle')) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+
+                // Prevenir tecla ESC de fechar
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape' && loginModal.classList.contains('show')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                });
+            }
+        });
+
         // Verificar autenticação antes de carregar qualquer coisa
         verificarAutenticacao();
     </script>
@@ -1637,9 +2314,6 @@
                     </button>
                     <button class="sidebar-btn" data-section="cardapio" onclick="mudarSecaoAdmin('cardapio')">
                         <i class="fas fa-utensils"></i> Cardápio
-                    </button>
-                    <button class="sidebar-btn" data-section="buffet" onclick="mudarSecaoAdmin('buffet')">
-                        <i class="fas fa-concierge-bell"></i> Buffet do Dia
                     </button>
                     <button class="sidebar-btn" data-section="configuracoes" onclick="mudarSecaoAdmin('configuracoes')">
                         <i class="fas fa-cog"></i> Configurações
@@ -1740,49 +2414,6 @@
                     <div id="admin-produtos-lista"
                         style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
                         <p style="color: var(--text-muted);">Carregando produtos...</p>
-                    </div>
-                </section>
-
-                <!-- Seção Buffet do Dia -->
-                <section id="admin-section-buffet" class="admin-section" style="display: none;">
-                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-concierge-bell" style="color: var(--primary);"></i> Buffet do Dia
-                    </h2>
-
-                    <div
-                        style="background: rgba(39, 174, 96, 0.1); border: 1px solid var(--primary); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-                        <p style="color: var(--text-muted); margin: 0;">
-                            <i class="fas fa-info-circle" style="color: var(--primary);"></i>
-                            Gerencie os itens disponíveis no buffet de hoje. Itens ativos aparecem para seleção nas
-                            marmitas.
-                        </p>
-                    </div>
-
-                    <!-- Formulário para adicionar item -->
-                    <div
-                        style="background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
-                        <h3 style="margin-bottom: 15px; font-size: 1rem;">
-                            <i class="fas fa-plus-circle" style="color: var(--primary);"></i> Adicionar Item
-                        </h3>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <input type="text" id="buffet-novo-item" placeholder="Ex: Arroz, Feijão, Frango..."
-                                style="flex: 1; min-width: 200px; padding: 12px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: white;">
-                            <button onclick="adicionarItemBuffet()"
-                                style="padding: 12px 24px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                                <i class="fas fa-plus"></i> Adicionar
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Lista de itens do buffet -->
-                    <div
-                        style="background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
-                        <h3 style="margin-bottom: 15px; font-size: 1rem;">
-                            <i class="fas fa-list" style="color: var(--primary);"></i> Itens do Buffet
-                        </h3>
-                        <div id="buffet-lista" style="display: flex; flex-direction: column; gap: 10px;">
-                            <p style="color: var(--text-muted);">Carregando itens do buffet...</p>
-                        </div>
                     </div>
                 </section>
 

@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp - Painel de Controle</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #25D366;
+            --primary-dark: #128C7E;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --info: #3498db;
+            --success: #2ecc71;
+            --dark: #0a0a0a;
+            --card: #141414;
+            --card-hover: #1a1a1a;
+            --border: #2d2d2d;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --radius: 12px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .sidebar-header h2 i {
+            color: var(--primary);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: rgba(37, 211, 102, 0.1);
+            color: var(--primary);
+            border-left-color: var(--primary);
+        }
+
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-close-sidebar {
+            width: 100%;
+            padding: 12px;
+            background: var(--danger);
+            border: none;
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-close-sidebar:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-header h1 i {
+            color: var(--primary);
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+        }
+
+        /* Status Card */
+        .status-card {
+            background: linear-gradient(135deg, var(--card), var(--card-hover));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 30px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .status-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .status-icon.connected {
+            background: rgba(37, 211, 102, 0.15);
+            color: var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        .status-icon.disconnected {
+            background: rgba(231, 76, 60, 0.15);
+            color: var(--danger);
+        }
+
+        .status-icon.loading {
+            background: rgba(243, 156, 18, 0.15);
+            color: var(--warning);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.8;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-info {
+            flex: 1;
+        }
+
+        .status-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .status-info h2.connected {
+            color: var(--primary);
+        }
+
+        .status-info h2.disconnected {
+            color: var(--danger);
+        }
+
+        .status-info h2.loading {
+            color: var(--warning);
+        }
+
+        .status-info p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* QR Code Container */
+        .qr-container {
+            background: linear-gradient(135deg, var(--card), var(--card-hover));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .qr-container h3 {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .qr-container h3 i {
+            color: var(--primary);
+        }
+
+        .qr-code-wrapper {
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        .qr-code-wrapper img {
+            max-width: 280px;
+            width: 100%;
+            height: auto;
+        }
+
+        .qr-instructions {
+            color: var(--text-muted);
+            margin-top: 20px;
+        }
+
+        .qr-instructions ol {
+            text-align: left;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .qr-instructions li {
+            margin: 8px 0;
+        }
+
+        /* Commands Grid */
+        .commands-section {
+            margin-bottom: 30px;
+        }
+
+        .commands-section h3 {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+        }
+
+        .commands-section h3 i {
+            color: var(--primary);
+        }
+
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .command-card {
+            background: linear-gradient(135deg, var(--card), var(--card-hover));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 25px;
+            transition: all 0.3s;
+        }
+
+        .command-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .command-card h4 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+
+        .command-card h4 i {
+            width: 35px;
+            height: 35px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .command-card h4 i.restart {
+            background: rgba(52, 152, 219, 0.15);
+            color: var(--info);
+        }
+
+        .command-card h4 i.disconnect {
+            background: rgba(243, 156, 18, 0.15);
+            color: var(--warning);
+        }
+
+        .command-card h4 i.newqr {
+            background: rgba(37, 211, 102, 0.15);
+            color: var(--primary);
+        }
+
+        .command-card h4 i.destroy {
+            background: rgba(231, 76, 60, 0.15);
+            color: var(--danger);
+        }
+
+        .command-card h4 i.groups {
+            background: rgba(155, 89, 182, 0.15);
+            color: #9b59b6;
+        }
+
+        .command-card h4 i.verify {
+            background: rgba(46, 204, 113, 0.15);
+            color: var(--success);
+        }
+
+        .command-card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .command-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .command-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .command-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .command-btn.info {
+            background: var(--info);
+            color: white;
+        }
+
+        .command-btn.warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .command-btn.danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .command-btn.purple {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .command-btn:not(:disabled):hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        /* Groups Section */
+        .groups-section {
+            background: linear-gradient(135deg, var(--card), var(--card-hover));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .groups-section h3 {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .groups-section h3 i {
+            color: #9b59b6;
+        }
+
+        .groups-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .group-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .group-info h4 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .group-info code {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--dark);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .group-members {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .copy-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+
+        .toast.success {
+            background: var(--primary);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        .toast.warning {
+            background: var(--warning);
+        }
+
+        .toast.info {
+            background: var(--info);
+        }
+
+        .toast.hide {
+            animation: slideOut 0.3s ease forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: var(--text);
+            font-size: 1.1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .sidebar-nav {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+                padding: 10px;
+            }
+
+            .nav-item {
+                padding: 10px 15px;
+                border-left: none;
+                border-radius: var(--radius);
+            }
+
+            .nav-item.active {
+                border-left: none;
+            }
+
+            .sidebar-footer {
+                display: none;
+            }
+
+            .status-card {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .commands-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fab fa-whatsapp"></i> Perfil da Loja</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="custom.html" class="nav-item">
+                <i class="fas fa-utensils"></i>
+                <span>Cardapio</span>
+            </a>
+            <a href="buffet.html" class="nav-item">
+                <i class="fas fa-drumstick-bite"></i>
+                <span>Buffet do Dia</span>
+            </a>
+            <a href="admin.html" class="nav-item">
+                <i class="fas fa-cog"></i>
+                <span>Configuracoes</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-users"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="whatsapp.html" class="nav-item active">
+                <i class="fab fa-whatsapp"></i>
+                <span>WhatsApp</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-close-sidebar" onclick="window.location.href='quadro.html'">
+                <i class="fas fa-times"></i> Fechar
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="page-header">
+            <h1><i class="fab fa-whatsapp"></i> WhatsApp</h1>
+            <p>Gerencie a conexao do WhatsApp do restaurante</p>
+        </div>
+
+        <!-- Status Card -->
+        <div class="status-card" id="status-card">
+            <div class="status-icon loading" id="status-icon">
+                <i class="fas fa-spinner"></i>
+            </div>
+            <div class="status-info">
+                <h2 class="loading" id="status-title">Verificando...</h2>
+                <p id="status-message">Aguarde enquanto verificamos o status da conexao do WhatsApp.</p>
+            </div>
+            <button class="command-btn primary" onclick="checkStatus()" id="btn-refresh">
+                <i class="fas fa-sync-alt"></i> Atualizar
+            </button>
+        </div>
+
+        <!-- QR Code Container (hidden when connected) -->
+        <div class="qr-container" id="qr-container" style="display: none;">
+            <h3><i class="fas fa-qrcode"></i> Escanear QR Code</h3>
+            <p>Escaneie o QR Code abaixo com o WhatsApp do seu celular</p>
+            <div class="qr-code-wrapper">
+                <img id="qr-code-img" src="" alt="QR Code WhatsApp">
+            </div>
+            <div class="qr-instructions">
+                <strong>Como conectar:</strong>
+                <ol>
+                    <li>Abra o WhatsApp no seu celular</li>
+                    <li>Toque em Menu ou Configuracoes</li>
+                    <li>Selecione "Aparelhos Conectados"</li>
+                    <li>Toque em "Conectar um Aparelho"</li>
+                    <li>Aponte a camera para o QR Code acima</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Commands Section -->
+        <div class="commands-section">
+            <h3><i class="fas fa-terminal"></i> Comandos Essenciais</h3>
+            <div class="commands-grid">
+                <!-- Verificar Status -->
+                <div class="command-card">
+                    <h4><i class="fas fa-wifi verify"></i> Verificar Conexao</h4>
+                    <p>Verifica o status atual da conexao do WhatsApp e atualiza a interface.</p>
+                    <button class="command-btn primary" onclick="checkStatus()">
+                        <i class="fas fa-sync-alt"></i> Verificar Conexao
+                    </button>
+                </div>
+
+                <!-- Reiniciar -->
+                <div class="command-card">
+                    <h4><i class="fas fa-redo restart"></i> Reiniciar WhatsApp</h4>
+                    <p>Reinicia o cliente do WhatsApp. Util quando a conexao esta instavel.</p>
+                    <button class="command-btn info" onclick="restartWhatsApp()">
+                        <i class="fas fa-redo"></i> Reiniciar
+                    </button>
+                </div>
+
+                <!-- Desconectar -->
+                <div class="command-card">
+                    <h4><i class="fas fa-sign-out-alt disconnect"></i> Desconectar</h4>
+                    <p>Faz logout do WhatsApp. Voce precisara escanear o QR Code novamente.</p>
+                    <button class="command-btn warning" onclick="disconnectWhatsApp()">
+                        <i class="fas fa-sign-out-alt"></i> Desconectar
+                    </button>
+                </div>
+
+                <!-- Gerar Novo QR -->
+                <div class="command-card">
+                    <h4><i class="fas fa-qrcode newqr"></i> Gerar Novo QR</h4>
+                    <p>Limpa a sessao e gera um novo QR Code para conectar outro numero.</p>
+                    <button class="command-btn primary" onclick="forceNewQR()">
+                        <i class="fas fa-qrcode"></i> Novo QR Code
+                    </button>
+                </div>
+
+                <!-- Destruir Cliente -->
+                <div class="command-card">
+                    <h4><i class="fas fa-trash destroy"></i> Destruir Cliente</h4>
+                    <p>Destroi completamente o cliente. Use apenas em ultima instancia.</p>
+                    <button class="command-btn danger" onclick="destroyWhatsApp()">
+                        <i class="fas fa-trash"></i> Destruir
+                    </button>
+                </div>
+
+                <!-- Listar Grupos -->
+                <div class="command-card">
+                    <h4><i class="fas fa-users groups"></i> Listar Grupos</h4>
+                    <p>Lista todos os grupos disponiveis para configurar o grupo de pedidos.</p>
+                    <button class="command-btn purple" onclick="listGroups()" id="btn-groups">
+                        <i class="fas fa-users"></i> Ver Grupos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Groups Section (hidden by default) -->
+        <div class="groups-section" id="groups-section" style="display: none;">
+            <h3><i class="fas fa-users"></i> Grupos Disponiveis</h3>
+            <div class="groups-list" id="groups-list">
+                <!-- Groups will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loading-text">Processando...</div>
+    </div>
+
+    <script>
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle"></i> ${message}`;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Show loading
+        function showLoading(text = 'Processando...') {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('loading-overlay').classList.add('show');
+        }
+
+        // Hide loading
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.remove('show');
+        }
+
+        // Update status UI
+        function updateStatusUI(connected, message, qrCode = null) {
+            const statusIcon = document.getElementById('status-icon');
+            const statusTitle = document.getElementById('status-title');
+            const statusMessage = document.getElementById('status-message');
+            const qrContainer = document.getElementById('qr-container');
+            const qrCodeImg = document.getElementById('qr-code-img');
+
+            if (connected) {
+                statusIcon.className = 'status-icon connected';
+                statusIcon.innerHTML = '<i class="fab fa-whatsapp"></i>';
+                statusTitle.className = 'connected';
+                statusTitle.textContent = 'WhatsApp Conectado!';
+                statusMessage.textContent = message || 'O WhatsApp do restaurante esta conectado e funcionando corretamente.';
+                qrContainer.style.display = 'none';
+            } else if (qrCode) {
+                statusIcon.className = 'status-icon disconnected';
+                statusIcon.innerHTML = '<i class="fas fa-qrcode"></i>';
+                statusTitle.className = 'disconnected';
+                statusTitle.textContent = 'Aguardando Conexao';
+                statusMessage.textContent = 'Escaneie o QR Code abaixo para conectar o WhatsApp.';
+                qrContainer.style.display = 'block';
+                qrCodeImg.src = qrCode;
+            } else {
+                statusIcon.className = 'status-icon disconnected';
+                statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+                statusTitle.className = 'disconnected';
+                statusTitle.textContent = 'WhatsApp Desconectado';
+                statusMessage.textContent = message || 'Aguarde o QR Code aparecer ou reinicie o servidor.';
+                qrContainer.style.display = 'none';
+            }
+        }
+
+        // Check status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/whatsapp/status');
+                const data = await response.json();
+
+                if (data.connected) {
+                    updateStatusUI(true, 'Conexao ativa e funcionando.');
+                    showToast('WhatsApp conectado!', 'success');
+                } else if (data.qrCodeAvailable) {
+                    // Get QR code
+                    const qrResponse = await fetch('/api/whatsapp/qrcode');
+                    const qrData = await qrResponse.json();
+                    if (qrData.available && qrData.dataUrl) {
+                        updateStatusUI(false, null, qrData.dataUrl);
+                    } else {
+                        updateStatusUI(false, 'QR Code nao disponivel. Clique em "Reiniciar" para gerar um novo.');
+                    }
+                } else {
+                    updateStatusUI(false, data.message || 'Cliente nao inicializado ou em processo de inicializacao.');
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+                updateStatusUI(false, 'Erro ao verificar status. Verifique se o servidor esta rodando.');
+                showToast('Erro ao verificar status', 'error');
+            }
+        }
+
+        // Restart WhatsApp
+        async function restartWhatsApp() {
+            if (!confirm('Deseja reiniciar o WhatsApp? Isso pode demorar alguns segundos.')) return;
+
+            showLoading('Reiniciando WhatsApp...');
+            try {
+                const response = await fetch('/api/whatsapp/restart', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'WhatsApp reiniciado!', 'success');
+                    setTimeout(checkStatus, 3000); // Wait and check status
+                } else {
+                    showToast(data.error || 'Erro ao reiniciar', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao reiniciar:', error);
+                showToast('Erro ao reiniciar WhatsApp', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Disconnect WhatsApp
+        async function disconnectWhatsApp() {
+            if (!confirm('Deseja desconectar o WhatsApp? Voce precisara escanear o QR Code novamente.')) return;
+
+            showLoading('Desconectando...');
+            try {
+                const response = await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'WhatsApp desconectado!', 'success');
+                    setTimeout(checkStatus, 2000);
+                } else {
+                    showToast(data.error || 'Erro ao desconectar', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao desconectar:', error);
+                showToast('Erro ao desconectar WhatsApp', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Force new QR Code
+        async function forceNewQR() {
+            if (!confirm('Isso vai limpar a sessao atual e gerar um novo QR Code. Continuar?')) return;
+
+            showLoading('Gerando novo QR Code...');
+            try {
+                const response = await fetch('/api/whatsapp/force-new-qr', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'Novo QR Code sera gerado!', 'success');
+                    setTimeout(checkStatus, 5000); // Wait for QR to be generated
+                } else {
+                    showToast(data.error || 'Erro ao gerar novo QR', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao gerar novo QR:', error);
+                showToast('Erro ao gerar novo QR Code', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Destroy WhatsApp client
+        async function destroyWhatsApp() {
+            if (!confirm('ATENCAO: Isso vai destruir completamente o cliente do WhatsApp. Continuar?')) return;
+            if (!confirm('Tem certeza? Esta acao e irreversivel e voce precisara reiniciar o servidor.')) return;
+
+            showLoading('Destruindo cliente...');
+            try {
+                const response = await fetch('/api/whatsapp/destroy', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'Cliente destruido!', 'warning');
+                    updateStatusUI(false, 'Cliente destruido. Reinicie o servidor para reconectar.');
+                } else {
+                    showToast(data.error || 'Erro ao destruir cliente', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao destruir:', error);
+                showToast('Erro ao destruir cliente', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // List groups
+        async function listGroups() {
+            showLoading('Carregando grupos...');
+            try {
+                const response = await fetch('/api/whatsapp/groups');
+                const data = await response.json();
+
+                if (data.success && data.groups) {
+                    const groupsList = document.getElementById('groups-list');
+                    const groupsSection = document.getElementById('groups-section');
+
+                    if (data.groups.length === 0) {
+                        groupsList.innerHTML = '<p style="color: var(--text-muted);">Nenhum grupo encontrado.</p>';
+                    } else {
+                        groupsList.innerHTML = data.groups.map(group => `
+                            <div class="group-item">
+                                <div class="group-info">
+                                    <h4>${group.name}</h4>
+                                    <code>${group.id}</code>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div class="group-members">
+                                        <i class="fas fa-users"></i>
+                                        ${group.participants} membros
+                                    </div>
+                                    <button class="copy-btn" onclick="copyToClipboard('${group.id}')" title="Copiar ID">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+
+                    groupsSection.style.display = 'block';
+                    showToast(`${data.groups.length} grupo(s) encontrado(s)`, 'success');
+                } else {
+                    showToast(data.error || 'Erro ao listar grupos', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao listar grupos:', error);
+                showToast('Erro ao listar grupos. Verifique se o WhatsApp esta conectado.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('ID copiado para a area de transferencia!', 'success');
+            }).catch(() => {
+                showToast('Erro ao copiar', 'error');
+            });
+        }
+
+        // Auto-refresh status every 10 seconds when not connected
+        let refreshInterval;
+        function startAutoRefresh() {
+            refreshInterval = setInterval(async () => {
+                const response = await fetch('/api/whatsapp/status');
+                const data = await response.json();
+                if (!data.connected) {
+                    checkStatus();
+                } else {
+                    clearInterval(refreshInterval);
+                }
+            }, 10000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkStatus();
+            startAutoRefresh();
+        });
+    </script>
+</body>
+
+</html>

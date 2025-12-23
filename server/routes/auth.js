@@ -5,7 +5,7 @@ const router = express.Router();
 
 // Credenciais do admin (configurar via .env)
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'campestre123';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'killsis';
 
 // Endpoint de login admin
 router.post('/admin/login', (req, res) => {

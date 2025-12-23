@@ -13,17 +13,17 @@ export default function (getWhatsappService, getRobotEnabled, setRobotEnabled) {
                 return res.json({
                     connected: false,
                     qrCodeAvailable: false,
-                    message: 'Serviço WhatsApp não inicializado'
+                    message: 'Servico WhatsApp nao inicializado'
                 });
             }
 
-            const isConnected = whatsappService.isConnected || false;
-            const hasQr = whatsappService.qrCode ? true : false;
+            const status = whatsappService.getStatus();
 
             res.json({
-                connected: isConnected,
-                qrCodeAvailable: hasQr,
-                message: isConnected ? 'Conectado' : 'Desconectado'
+                connected: status.connected,
+                qrCodeAvailable: status.qrCodeAvailable,
+                clientReady: status.clientReady,
+                message: status.connected ? 'Conectado' : (status.qrCodeAvailable ? 'Aguardando QR Code' : 'Desconectado')
             });
         } catch (error) {
             console.error('Erro ao verificar status WhatsApp:', error);
@@ -35,20 +35,154 @@ export default function (getWhatsappService, getRobotEnabled, setRobotEnabled) {
     router.get('/qrcode', async (req, res) => {
         try {
             const whatsappService = getWhatsappService();
-            if (!whatsappService || !whatsappService.qrCode) {
+            if (!whatsappService) {
                 return res.json({
                     available: false,
-                    message: 'QR Code não disponível'
+                    message: 'Servico WhatsApp nao inicializado'
                 });
             }
 
-            res.json({
-                available: true,
-                dataUrl: whatsappService.qrCode
-            });
+            // Verificar se há QR code disponível
+            if (!whatsappService.lastQRCode) {
+                return res.json({
+                    available: false,
+                    message: 'QR Code nao disponivel'
+                });
+            }
+
+            // Gerar DataURL do QR Code
+            try {
+                const dataUrl = await whatsappService.getQRCodeDataURL();
+                res.json({
+                    available: true,
+                    dataUrl: dataUrl
+                });
+            } catch (qrError) {
+                res.json({
+                    available: false,
+                    message: qrError.message || 'Erro ao gerar QR Code'
+                });
+            }
         } catch (error) {
             console.error('Erro ao obter QR code:', error);
             res.json({ available: false, error: error.message });
+        }
+    });
+
+    // Desconectar WhatsApp (logout)
+    router.post('/disconnect', async (req, res) => {
+        try {
+            const whatsappService = getWhatsappService();
+            if (!whatsappService) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Serviço WhatsApp não inicializado'
+                });
+            }
+
+            const result = await whatsappService.disconnect();
+            res.json(result);
+        } catch (error) {
+            console.error('Erro ao desconectar WhatsApp:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Erro ao desconectar'
+            });
+        }
+    });
+
+    // Reiniciar WhatsApp
+    router.post('/restart', async (req, res) => {
+        try {
+            const whatsappService = getWhatsappService();
+            if (!whatsappService) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Serviço WhatsApp não inicializado'
+                });
+            }
+
+            const result = await whatsappService.restart();
+            res.json(result);
+        } catch (error) {
+            console.error('Erro ao reiniciar WhatsApp:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Erro ao reiniciar'
+            });
+        }
+    });
+
+    // Forçar novo QR Code (limpa sessão)
+    router.post('/force-new-qr', async (req, res) => {
+        try {
+            const whatsappService = getWhatsappService();
+            if (!whatsappService) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Serviço WhatsApp não inicializado'
+                });
+            }
+
+            const result = await whatsappService.forceNewQR();
+            res.json(result);
+        } catch (error) {
+            console.error('Erro ao forçar novo QR:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Erro ao gerar novo QR'
+            });
+        }
+    });
+
+    // Destruir cliente WhatsApp
+    router.post('/destroy', async (req, res) => {
+        try {
+            const whatsappService = getWhatsappService();
+            if (!whatsappService) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Serviço WhatsApp não inicializado'
+                });
+            }
+
+            const result = await whatsappService.destroy();
+            res.json(result);
+        } catch (error) {
+            console.error('Erro ao destruir WhatsApp:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Erro ao destruir cliente'
+            });
+        }
+    });
+
+    // Listar grupos do WhatsApp
+    router.get('/groups', async (req, res) => {
+        try {
+            const whatsappService = getWhatsappService();
+            if (!whatsappService) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Serviço WhatsApp não inicializado'
+                });
+            }
+
+            if (!whatsappService.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'WhatsApp não está conectado'
+                });
+            }
+
+            const groups = await whatsappService.listGroups();
+            res.json({ success: true, groups });
+        } catch (error) {
+            console.error('Erro ao listar grupos:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Erro ao listar grupos'
+            });
         }
     });
 
